@@ -27,8 +27,10 @@ import { extname, relative } from "node:path";
 import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
 import type { BundledLanguage, BundledTheme } from "shiki";
+import type { Component } from "@earendil-works/pi-tui";
 
 import { type DiffLine, type ParsedDiff, parseDiff } from "./core/diff.js";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerReviewDiffCommand } from "./review/command.js";
 import { formatReviewMarkdown } from "./review/export.js";
 import { countReviewDiffLines, type ReviewDiffMode, readGitDiff } from "./review/git.js";
@@ -40,6 +42,15 @@ import {
 	themeCacheKey as sharedThemeCacheKey,
 } from "./review/hunk-preview.js";
 import { formatInteractiveReviewPanel } from "./review/interactive.js";
+
+/** Simplified Pi theme — only methods pi-diff actually calls. */
+interface PiTheme {
+	fg(name: string, text: string): string;
+	getFgAnsi?(name: string): string;
+	getBgAnsi?(name: string): string;
+	bg?(name: string, text: string): string;
+	bold(text: string): string;
+}
 
 // ---------------------------------------------------------------------------
 // Diff Theme System — presets, auto-derive, and per-color overrides
@@ -206,7 +217,7 @@ let _hasExplicitBgConfig = false;
  *  Reads toolSuccessBg as the add/context base and toolErrorBg as the delete base,
  *  then mixes accent colors into each. Falls back to black (0,0,0) when a theme
  *  background is unavailable; toolErrorBg falls back to toolSuccessBg. */
-function autoDeriveBgFromTheme(theme: any): void {
+function autoDeriveBgFromTheme(theme: PiTheme): void {
 	if (!theme?.getFgAnsi) return;
 	try {
 		const fgAdd = theme.getFgAnsi("toolDiffAdded");
@@ -488,7 +499,7 @@ interface DiffColors {
 let DEFAULT_DIFF_COLORS: DiffColors = { fgAdd: FG_ADD, fgDel: FG_DEL, fgCtx: FG_DIM };
 let _lastResolvedThemeKey = "";
 
-function themeCacheKey(theme?: any): string {
+function themeCacheKey(theme?: PiTheme): string {
 	if (!theme?.fg) return "no-theme";
 	const fgKeys = [
 		"toolTitle",
@@ -522,7 +533,7 @@ function themeCacheKey(theme?: any): string {
 /** Resolve diff fg colors from theme (if available), falling back to hardcoded ANSI.
  *  On first call with a valid theme, auto-derives bg colors if no explicit config was set.
  *  Always reads toolSuccessBg for BG_BASE (used for context/add line backgrounds). */
-function resolveDiffColors(theme?: any): DiffColors {
+function resolveDiffColors(theme?: PiTheme): DiffColors {
 	const currentThemeKey = themeCacheKey(theme);
 	if (!_hasExplicitBgConfig && _lastResolvedThemeKey && _lastResolvedThemeKey !== currentThemeKey) {
 		BG_BASE = BG_DEFAULT;
@@ -1342,7 +1353,7 @@ function normalizeOptionalPositiveInteger(value: unknown, name: string): number 
 	return number;
 }
 
-export default async function diffRendererExtension(pi: any): Promise<void> {
+export default async function diffRendererExtension(pi: ExtensionAPI): Promise<void> {
 	// Apply diff theme palette from settings/presets before rendering
 	applySharedDiffPalette();
 
@@ -1366,6 +1377,56 @@ export default async function diffRendererExtension(pi: any): Promise<void> {
 	const cwd = process.cwd();
 	const home = process.env.HOME ?? "";
 	const sp = (p: string) => shortPath(cwd, home, p);
+
+	// ── Sidebar-aware async rendering ──
+	/** Extended Text component with pi-diff's rendering state. */
+	interface MonitoredText extends Component {
+		setText(text: string): void;
+		__piDiffWidthAware?: boolean;
+		__piDiffRender?: (width: number) => string[];
+		__piDiffRenderedKey?: string;
+		__piDiffTask?: {
+			placeholder: string;
+			fallback: string;
+			invalidate: () => void;
+			key: (width: number) => string;
+			render: (width: number) => Promise<string>;
+		};
+	}
+	/** Wrap a Text component so its render(width) kicks off async diff rendering
+	 *  using the real TUI width (which accounts for the sidebar). */
+	function getWidthAwareText(lastComponent: Component | undefined): MonitoredText {
+		const text = (lastComponent ?? new TextComponent("", 0, 0)) as MonitoredText;
+		if (text.__piDiffWidthAware) return text;
+		const baseRender = typeof text.render === "function" ? text.render.bind(text) : null;
+		if (!baseRender) return text;
+		text.__piDiffWidthAware = true;
+		text.__piDiffRender = baseRender as (width: number) => string[];
+		text.render = (width: number) => {
+			const task = text.__piDiffTask;
+			if (task) {
+				const renderWidth = Math.max(1, Math.floor(width || termW()));
+				const key = task.key(renderWidth);
+				if (text.__piDiffRenderedKey !== key) {
+					text.__piDiffRenderedKey = key;
+					text.setText(task.placeholder);
+					Promise.resolve(task.render(renderWidth))
+						.then((rendered: string) => {
+							if (text.__piDiffRenderedKey !== key) return;
+							text.setText(rendered);
+							task.invalidate?.();
+						})
+						.catch(() => {
+							if (text.__piDiffRenderedKey !== key) return;
+							text.setText(task.fallback);
+							task.invalidate?.();
+						});
+				}
+			}
+			return text.__piDiffRender!(width);
+		};
+		return text;
+	}
 
 	registerReviewDiffCommand(pi, cwd);
 
@@ -1423,9 +1484,9 @@ Examples:
 			additionalProperties: false,
 		},
 
-		async execute(_tid: string, params: ReviewGitDiffParams = {}) {
+		async execute(_tid: string, params: any = {}): Promise<any> {
 			try {
-				const safeParams = params ?? {};
+				const safeParams = (params ?? {}) as ReviewGitDiffParams;
 				const diff = await readGitDiff(cwd, reviewGitDiffMode(safeParams));
 				const maxLinesPerHunk = reviewGitDiffMaxLines(safeParams);
 				const markdown =
@@ -1442,30 +1503,32 @@ Examples:
 				return {
 					content: [{ type: "text" as const, text: markdown }],
 					details: {
-						_type: "reviewGitDiff",
+						_type: "reviewGitDiff" as const,
 						markdown,
-						mode: diff.mode,
+						mode: String(diff.mode),
 						fileCount: diff.files.length,
 						insertions: counts.insertions,
 						deletions: counts.deletions,
 						commentCount: 0,
 						focusedFile: safeParams.file,
 						focusedHunk: safeParams.hunkId,
+					error: undefined,
 					},
 				};
 			} catch (error) {
 				const message = error instanceof Error ? error.message : String(error);
 				return {
 					content: [{ type: "text" as const, text: `Error: ${message}` }],
-					details: { _type: "reviewGitDiff", error: message },
+					details: { _type: "reviewGitDiff" as const, markdown: "", mode: "error", fileCount: 0, insertions: 0, deletions: 0, commentCount: 0, focusedFile: undefined, focusedHunk: undefined, error: message },
 				};
 			}
 		},
 
-		renderCall(args: ReviewGitDiffParams, theme: any, ctx: any) {
+			renderCall(args: Record<string, unknown>, theme: any, ctx: any) {
 			const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
-			const base = typeof args?.base === "string" && args.base.trim() ? ` vs ${args.base.trim()}` : " working tree";
-			const focus = typeof args?.file === "string" && args.file.trim() ? ` • ${args.file.trim()}` : "";
+			const safeArgs = args as ReviewGitDiffParams;
+			const base = typeof safeArgs?.base === "string" && safeArgs.base.trim() ? ` vs ${safeArgs.base.trim()}` : " working tree";
+			const focus = typeof safeArgs?.file === "string" && safeArgs.file.trim() ? ` • ${safeArgs.file.trim()}` : "";
 			text.setText(`${theme.fg("toolTitle", theme.bold("review_git_diff"))}${theme.fg("muted", `${base}${focus}`)}`);
 			return text;
 		},
@@ -1519,12 +1582,12 @@ Examples:
 			if (old !== null && old !== content) {
 				const diff = parseDiff(old, content);
 				const lg = detectDiffLanguage(fp);
-				(result as any).details = { _type: "diff", summary: summarize(diff.added, diff.removed), diff, language: lg };
+				(result as Record<string, unknown>).details = { _type: "diff", summary: summarize(diff.added, diff.removed), diff, language: lg };
 			} else if (old === null) {
 				const lineCount = content ? content.split("\n").length : 0;
-				(result as any).details = { _type: "new", lines: lineCount, content: content ?? "", filePath: fp };
+				(result as Record<string, unknown>).details = { _type: "new", lines: lineCount, content: content ?? "", filePath: fp };
 			} else if (old === content) {
-				(result as any).details = { _type: "noChange" };
+				(result as Record<string, unknown>).details = { _type: "noChange" };
 			}
 			return result;
 		},
@@ -1572,40 +1635,32 @@ Examples:
 		},
 
 		renderResult(result: any, _opt: any, theme: any, ctx: any) {
-			const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
+			const text = getWidthAwareText(ctx.lastComponent);
 			if (ctx.isError) {
 				const e =
 					result.content
-						?.filter((c: any) => c.type === "text")
-						.map((c: any) => c.text || "")
+						?.filter((c: { type: string; text?: string }) => c.type === "text")
+						.map((c: { type: string; text?: string }) => c.text || "")
 						.join("\n") ?? "Error";
+				text.__piDiffTask = undefined;
 				text.setText(`\n${theme.fg("error", e)}`);
 				return text;
 			}
 			const d = result.details;
 			if (d?._type === "diff") {
-				const w = termW();
-				const key = `wd:${sharedThemeCacheKey(theme)}:${w}:${d.summary}:${d.diff?.lines?.length ?? 0}:${d.language ?? ""}`;
-				if (ctx.state._wdk !== key) {
-					ctx.state._wdk = key;
-					ctx.state._wdt = `  ${d.summary}\n${theme.fg("muted", "  rendering diff…")}`;
-					const dc = resolveSharedDiffColors(theme);
-					renderSharedSplit(d.diff, d.language, MAX_RENDER_LINES, dc, w)
-						.then((rendered: string) => {
-							if (ctx.state._wdk !== key) return;
-							ctx.state._wdt = `  ${d.summary}\n${rendered}`;
-							ctx.invalidate();
-						})
-						.catch(() => {
-							if (ctx.state._wdk !== key) return;
-							ctx.state._wdt = `  ${d.summary}`;
-							ctx.invalidate();
-						});
-				}
-				text.setText(ctx.state._wdt ?? `  ${d.summary}`);
+				const themeKey = sharedThemeCacheKey(theme);
+				const dc = resolveSharedDiffColors(theme);
+				text.__piDiffTask = {
+					placeholder: `  ${d.summary}\n${theme.fg("muted", "  rendering diff…")}`,
+					fallback: `  ${d.summary}`,
+					invalidate: ctx.invalidate,
+					key: (width: number) => `wd:${themeKey}:${width}:${d.summary}:${d.diff?.lines?.length ?? 0}:${d.language ?? ""}`,
+					render: async (width: number) => `  ${d.summary}\n${await renderSharedSplit(d.diff, d.language, MAX_RENDER_LINES, dc, width)}`,
+				};
 				return text;
 			}
 			if (d?._type === "noChange") {
+				text.__piDiffTask = undefined;
 				text.setText(`  ${theme.fg("muted", "✓ no changes")}`);
 				return text;
 			}
@@ -1688,6 +1743,7 @@ Examples:
 			if (operations.length === 0) return result;
 
 			const { diffs, summary } = summarizeEditOperations(operations);
+			const lg = detectDiffLanguage(fp);
 			if (operations.length === 1) {
 				let editLine = 0;
 				try {
@@ -1699,11 +1755,11 @@ Examples:
 				} catch {
 					editLine = 0;
 				}
-				(result as any).details = { _type: "editInfo", summary, editLine };
+				(result as Record<string, unknown>).details = { _type: "editInfo", summary, editLine, diff: diffs[0], language: lg };
 				return result;
 			}
 
-			(result as any).details = {
+			(result as Record<string, unknown>).details = {
 				_type: "multiEditInfo",
 				summary,
 				editCount: operations.length,
@@ -1718,89 +1774,55 @@ Examples:
 			const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
 			const hdr = `${theme.fg("toolTitle", theme.bold("edit"))} ${theme.fg("accent", sp(fp))}`;
 
-			if (!(ctx.argsComplete && operations.length > 0)) {
+			if (ctx.argsComplete && operations.length > 0) {
+				const { totalAdded, totalRemoved } = summarizeEditOperations(operations);
+				text.setText(`${hdr}  ${theme.fg("muted", summarize(totalAdded, totalRemoved))}`);
+			} else {
 				text.setText(hdr);
-				return text;
 			}
-
-			const pk = JSON.stringify({ fp, operations, theme: sharedThemeCacheKey(theme), w: termW() });
-			if (ctx.state._pk !== pk) {
-				ctx.state._pk = pk;
-				ctx.state._pt = `${hdr}  ${theme.fg("muted", "(rendering…)")}`;
-				const lg = detectDiffLanguage(fp);
-				const dc = resolveSharedDiffColors(theme);
-
-				if (operations.length === 1) {
-					const diff = parseDiff(operations[0].oldText, operations[0].newText);
-					renderSharedSplit(diff, lg, MAX_PREVIEW_LINES, dc, termW())
-						.then((rendered) => {
-							if (ctx.state._pk !== pk) return;
-							ctx.state._pt = `${hdr}\n${summarize(diff.added, diff.removed)}\n${rendered}`;
-							ctx.invalidate();
-						})
-						.catch(() => {
-							if (ctx.state._pk !== pk) return;
-							ctx.state._pt = `${hdr}  ${summarize(diff.added, diff.removed)}`;
-							ctx.invalidate();
-						});
-				} else {
-					const { diffs, summary } = summarizeEditOperations(operations);
-					const maxShown = Math.min(operations.length, 3);
-					const previewLines = Math.max(8, Math.floor(MAX_PREVIEW_LINES / maxShown));
-					Promise.all(
-						diffs.slice(0, maxShown).map((diff, index) =>
-							renderSharedSplit(diff, lg, previewLines, dc, termW())
-								.then((rendered) => `Edit ${index + 1}/${operations.length}\n${rendered}`)
-								.catch(() => `Edit ${index + 1}/${operations.length}  ${summarize(diff.added, diff.removed)}`),
-						),
-					)
-						.then((sections) => {
-							if (ctx.state._pk !== pk) return;
-							const remainder = operations.length - maxShown;
-							const suffix = remainder > 0 ? `\n${theme.fg("muted", `… ${remainder} more edit blocks`)}` : "";
-							ctx.state._pt = `${hdr}\n${operations.length} edits ${summary}\n\n${sections.join("\n\n")}${suffix}`;
-							ctx.invalidate();
-						})
-						.catch(() => {
-							if (ctx.state._pk !== pk) return;
-							ctx.state._pt = `${hdr}  ${operations.length} edits ${summary}`;
-							ctx.invalidate();
-						});
-				}
-			}
-
-			text.setText(ctx.state._pt ?? hdr);
 			return text;
 		},
 
 		renderResult(result: any, _opt: any, theme: any, ctx: any) {
-			const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
+			const text = getWidthAwareText(ctx.lastComponent);
 			if (ctx.isError) {
 				const e =
 					result.content
-						?.filter((c: any) => c.type === "text")
-						.map((c: any) => c.text || "")
+						?.filter((c: { type: string; text?: string }) => c.type === "text")
+						.map((c: { type: string; text?: string }) => c.text || "")
 						.join("\n") ?? "Error";
+				text.__piDiffTask = undefined;
 				text.setText(`\n${theme.fg("error", e)}`);
 				return text;
 			}
-			if (result.details?._type === "editInfo") {
-				const { summary: s, editLine } = result.details;
+			const d = result.details;
+			if (d?._type === "editInfo" && d.diff) {
+				const themeKey = sharedThemeCacheKey(theme);
+				const dc = resolveSharedDiffColors(theme);
+				const loc = d.editLine > 0 ? ` ${theme.fg("muted", `at line ${d.editLine}`)}` : "";
+				text.__piDiffTask = {
+					placeholder: `  ${d.summary}${loc}\n${theme.fg("muted", "  rendering diff…")}`,
+					fallback: `  ${d.summary}${loc}`,
+					invalidate: ctx.invalidate,
+					key: (width: number) => `ed:${themeKey}:${width}:${d.summary}:${d.diff?.lines?.length ?? 0}:${d.language ?? ""}`,
+					render: async (width: number) => `  ${d.summary}${loc}\n${await renderSharedSplit(d.diff, d.language, MAX_PREVIEW_LINES, dc, width)}`,
+				};
+				return text;
+			}
+			if (d?._type === "editInfo") {
+				const { summary: s, editLine } = d;
 				const loc = editLine > 0 ? ` ${theme.fg("muted", `at line ${editLine}`)}` : "";
-				const content = `  ${s}${loc}`;
-				const vis = content.replace(ANSI_RE, "").length;
-				const pad = Math.max(0, termW() - vis);
-				text.setText(`${content}${" ".repeat(pad)}`);
+				text.__piDiffTask = undefined;
+				text.setText(`  ${s}${loc}`);
 				return text;
 			}
-			if (result.details?._type === "multiEditInfo") {
-				const { summary: s, editCount, diffLineCount } = result.details;
-				const content = `  ${editCount} edits ${s}${typeof diffLineCount === "number" ? ` ${theme.fg("muted", `(${diffLineCount} diff lines)`)}` : ""}`;
-				const vis = content.replace(ANSI_RE, "").length;
-				const pad = Math.max(0, termW() - vis);
-				text.setText(`${content}${" ".repeat(pad)}`);
+			if (d?._type === "multiEditInfo") {
+				const { summary: s, editCount, diffLineCount } = d;
+				text.__piDiffTask = undefined;
+				text.setText(`  ${editCount} edits ${s}${typeof diffLineCount === "number" ? ` ${theme.fg("muted", `(${diffLineCount} diff lines)`)}` : ""}`);
 				return text;
 			}
+			text.__piDiffTask = undefined;
 			text.setText(`  ${theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120))}`);
 			return text;
 		},

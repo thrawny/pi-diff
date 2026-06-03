@@ -28,6 +28,9 @@ vi.mock("@earendil-works/pi-tui", () => ({
 		setText(text: string) {
 			this.value = text;
 		}
+		render(_width: number) {
+			return this.value.split("\n");
+		}
 	},
 	Markdown: class Markdown {
 		constructor(
@@ -41,6 +44,26 @@ vi.mock("@earendil-works/pi-tui", () => ({
 
 const originalCwd = process.cwd();
 let tempDir: string | null = null;
+
+const ANSI_RE = /\x1b\[[0-?]*[ -/]*[@-~]/g;
+
+function plain(text: string): string {
+	return text.replace(ANSI_RE, "");
+}
+
+async function waitUntil(assertion: () => void): Promise<void> {
+	let lastError: unknown;
+	for (let i = 0; i < 20; i++) {
+		try {
+			assertion();
+			return;
+		} catch (error) {
+			lastError = error;
+			await new Promise((resolve) => setTimeout(resolve, 10));
+		}
+	}
+	throw lastError;
+}
 
 const theme = {
 	bold: (text: string) => `**${text}**`,
@@ -162,6 +185,7 @@ describe("diffRendererExtension review tools", () => {
 			state: {},
 			invalidate: () => {},
 		});
+		writeComponent.render(80);
 		expect(writeComponent.value).toContain("rendering diff");
 
 		const editArgs = {
@@ -175,7 +199,7 @@ describe("diffRendererExtension review tools", () => {
 			state: {},
 			invalidate: () => {},
 		});
-		expect(editComponent.value).toContain("rendering");
+		expect(editComponent.value).toContain("+1");
 
 		const editResult = await tools.edit.execute("edit-1", editArgs);
 		expect(editResult.details).toMatchObject({ _type: "editInfo" });
@@ -183,7 +207,82 @@ describe("diffRendererExtension review tools", () => {
 			isError: false,
 			lastComponent: undefined,
 		});
+		editResultComponent.render(80);
 		expect(editResultComponent.value).toContain("+1");
 		expect(editResultComponent.value).toContain("-1");
+	});
+
+	it("renders edit previews using the component render width instead of stdout columns", async () => {
+		const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");
+		Object.defineProperty(process.stdout, "columns", { configurable: true, value: 220 });
+		try {
+			const tools: Record<string, any> = {};
+			await diffRendererExtension({
+				registerTool(tool: Record<string, any>) {
+					tools[tool.name] = tool;
+				},
+			});
+
+			if (!tempDir) throw new Error("tempDir missing");
+			const trackedPath = join(tempDir, "tracked.txt");
+			writeFileSync(trackedPath, "const value = 1;\n");
+			const result = await tools.edit.execute("edit-width", {
+				path: trackedPath,
+				edits: [{ oldText: "const value = 1;", newText: "const value = 2;" }],
+			});
+
+			const component = tools.edit.renderResult(result, {}, theme, {
+				isError: false,
+				lastComponent: undefined,
+			});
+
+			component.render(120);
+			await waitUntil(() => expect(component.value).not.toContain("rendering"));
+			expect(component.value).not.toContain("┊");
+			expect(plain(component.value)).toContain("const value = 1;");
+			expect(plain(component.value)).toContain("const value = 2;");
+			expect(plain(component.value).split("\n").every((line) => line.length <= 120)).toBe(true);
+		} finally {
+			if (stdoutDescriptor) Object.defineProperty(process.stdout, "columns", stdoutDescriptor);
+			else Reflect.deleteProperty(process.stdout, "columns");
+		}
+	});
+
+	it("renders write diffs using the component render width instead of stdout columns", async () => {
+		const stdoutDescriptor = Object.getOwnPropertyDescriptor(process.stdout, "columns");
+		Object.defineProperty(process.stdout, "columns", { configurable: true, value: 220 });
+		try {
+			const tools: Record<string, any> = {};
+			await diffRendererExtension({
+				registerTool(tool: Record<string, any>) {
+					tools[tool.name] = tool;
+				},
+			});
+
+			if (!tempDir) throw new Error("tempDir missing");
+			const trackedPath = join(tempDir, "tracked.txt");
+			writeFileSync(trackedPath, "const value = 1;\n");
+			const result = await tools.write.execute("write-width", {
+				path: trackedPath,
+				content: "const value = 2;\n",
+			});
+
+			const component = tools.write.renderResult(result, {}, theme, {
+				isError: false,
+				lastComponent: undefined,
+				state: {},
+				invalidate: () => {},
+			});
+
+			component.render(120);
+			await waitUntil(() => expect(component.value).not.toContain("rendering"));
+			expect(component.value).not.toContain("┊");
+			expect(plain(component.value)).toContain("const value = 1;");
+			expect(plain(component.value)).toContain("const value = 2;");
+			expect(plain(component.value).split("\n").every((line) => line.length <= 120)).toBe(true);
+		} finally {
+			if (stdoutDescriptor) Object.defineProperty(process.stdout, "columns", stdoutDescriptor);
+			else Reflect.deleteProperty(process.stdout, "columns");
+		}
 	});
 });

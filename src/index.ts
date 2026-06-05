@@ -1064,7 +1064,7 @@ async function renderUnified(
 
 		// Hunk separator — collapsed context with optional function context
 		if (l.type === "sep") {
-			const label = sepLabelUnified(getSepStyle(), l.hunkMeta, l.newNum);
+			const label = sepLabelUnified(getSepStyle(), l.hunkMeta, l.newNum, l.content);
 			const totalW = Math.min(tw, 72);
 			const pad = Math.max(0, totalW - label.length - 2);
 			const half1 = Math.floor(pad / 2),
@@ -1223,7 +1223,7 @@ async function renderSplit(
 		}
 		// Hunk separator with optional function context
 		if (line.type === "sep") {
-			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum);
+			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
 			const g = `${BG_BASE} ${FG_DIM}${fit("", nw + 2)}${RST}${FG_RULE}│${RST} `;
 			return { gutter: g, contGutter: g, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, cw)}${RST}`] };
 		}

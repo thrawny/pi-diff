@@ -840,7 +840,7 @@ export async function renderUnified(
 	while (index < visible.length) {
 		const line = visible[index];
 		if (line.type === "sep") {
-			const label = sepLabelUnified(getSepStyle(), line.hunkMeta, line.newNum);
+			const label = sepLabelUnified(getSepStyle(), line.hunkMeta, line.newNum, line.content);
 			const totalWidth = Math.min(renderWidth, 72);
 			const padding = Math.max(0, totalWidth - label.length - 2);
 			const left = Math.floor(padding / 2);
@@ -982,7 +982,7 @@ export async function renderSplit(
 			return { gutter, continuation: gutter, bodyRows: [emptyBody] };
 		}
 		if (line.type === "sep") {
-			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum);
+			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
 			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 2)}${RST}${FG_RULE}│${RST} `;
 			return { gutter, continuation: gutter, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, codeWidth)}${RST}`] };
 		}

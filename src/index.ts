@@ -1759,11 +1759,24 @@ Examples:
 				return result;
 			}
 
+			// Merge all diffs into one combined view for rendering
+			const merged: typeof diffs[0] = {
+				lines: diffs.flatMap((diff, i) => [
+					// Add separator between multiple edits
+					...(i > 0 ? [{ type: "sep" as const, oldNum: null, newNum: null, content: `───── Edit ${i + 1} ─────` }] : []),
+					...diff.lines,
+				]),
+				added: diffs.reduce((sum, diff) => sum + diff.added, 0),
+				removed: diffs.reduce((sum, diff) => sum + diff.removed, 0),
+				chars: diffs.reduce((sum, diff) => sum + diff.chars, 0),
+			};
 			(result as Record<string, unknown>).details = {
 				_type: "multiEditInfo",
 				summary,
 				editCount: operations.length,
-				diffLineCount: diffs.reduce((sum, diff) => sum + diff.lines.length, 0),
+				diffLineCount: merged.lines.length,
+				diff: merged,
+				language: lg,
 			};
 			return result;
 		},
@@ -1817,7 +1830,21 @@ Examples:
 				return text;
 			}
 			if (d?._type === "multiEditInfo") {
-				const { summary: s, editCount, diffLineCount } = d;
+				const { summary: s, editCount, diffLineCount, diff, language } = d;
+				if (diff) {
+					const themeKey = sharedThemeCacheKey(theme);
+					const dc = resolveSharedDiffColors(theme);
+					text.__piDiffTask = {
+						placeholder: `  ${editCount} edits ${s}
+${theme.fg("muted", "  rendering diff…")}`,
+						fallback: `  ${editCount} edits ${s}${typeof diffLineCount === "number" ? ` ${theme.fg("muted", `(${diffLineCount} diff lines)`)}` : ""}`,
+						invalidate: ctx.invalidate,
+						key: (width: number) => `me:${themeKey}:${width}:${s}:${diff?.lines?.length ?? 0}:${language ?? ""}`,
+						render: async (width: number) =>
+							`  ${editCount} edits ${s}${typeof diffLineCount === "number" ? ` ${theme.fg("muted", `(${diffLineCount} diff lines)`)}` : ""}\n${await renderSharedSplit(diff, language, MAX_PREVIEW_LINES, dc, width)}`,
+					};
+					return text;
+				}
 				text.__piDiffTask = undefined;
 				text.setText(`  ${editCount} edits ${s}${typeof diffLineCount === "number" ? ` ${theme.fg("muted", `(${diffLineCount} diff lines)`)}` : ""}`);
 				return text;

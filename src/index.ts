@@ -29,7 +29,7 @@ import * as Diff from "diff";
 import type { BundledLanguage, BundledTheme } from "shiki";
 import type { Component } from "@earendil-works/pi-tui";
 
-import { type DiffLine, type ParsedDiff, parseDiff } from "./core/diff.js";
+import { computeHunkBlocks, type DiffLine, type ParsedDiff, getSepStyle, parseDiff, parsePatchFiles, resolveSepStyle, sepLabelSplit, sepLabelUnified } from "./core/diff.js";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import { registerReviewDiffCommand } from "./review/command.js";
 import { formatReviewMarkdown } from "./review/export.js";
@@ -1062,10 +1062,9 @@ async function renderUnified(
 	while (idx < vis.length) {
 		const l = vis[idx];
 
-		// Hunk separator — collapsed context
+		// Hunk separator — collapsed context with optional function context
 		if (l.type === "sep") {
-			const gap = l.newNum;
-			const label = gap && gap > 0 ? ` ${gap} unmodified lines ` : "···";
+			const label = sepLabelUnified(getSepStyle(), l.hunkMeta, l.newNum);
 			const totalW = Math.min(tw, 72);
 			const pad = Math.max(0, totalW - label.length - 2);
 			const half1 = Math.floor(pad / 2),
@@ -1156,28 +1155,32 @@ async function renderSplit(
 	if (!diff.lines.length) return "";
 
 	// Build rows
+	// Build paired rows using HunkBlock model
 	type Row = { left: DiffLine | null; right: DiffLine | null };
 	const rows: Row[] = [];
 	let i = 0;
 	while (i < diff.lines.length) {
 		const l = diff.lines[i];
-		if (l.type === "sep" || l.type === "ctx") {
+		if (l.type === "ctx") {
 			rows.push({ left: l, right: l });
 			i++;
 			continue;
 		}
-		const dels: DiffLine[] = [],
-			adds: DiffLine[] = [];
-		while (i < diff.lines.length && diff.lines[i].type === "del") {
-			dels.push(diff.lines[i]);
+		if (l.type === "sep") {
+			rows.push({ left: l, right: l });
 			i++;
+			continue;
 		}
-		while (i < diff.lines.length && diff.lines[i].type === "add") {
-			adds.push(diff.lines[i]);
-			i++;
+		// Use computeHunkBlocks for the remaining diff to build paired rows
+		const blocks = computeHunkBlocks({ lines: diff.lines.slice(i), added: 0, removed: 0, chars: 0 });
+		for (const block of blocks) {
+			const n = Math.max(block.deletions.length, block.additions.length);
+			for (let j = 0; j < n; j++) {
+				rows.push({ left: block.deletions[j] ?? null, right: block.additions[j] ?? null });
+			}
+			i += block.deletions.length + block.additions.length;
 		}
-		const n = Math.max(dels.length, adds.length);
-		for (let j = 0; j < n; j++) rows.push({ left: dels[j] ?? null, right: adds[j] ?? null });
+		break;
 	}
 
 	const vis = rows.slice(0, max);
@@ -1218,10 +1221,9 @@ async function renderSplit(
 			const g = ` ${gPat}${FG_RULE}│${RST} `;
 			return { gutter: g, contGutter: g, bodyRows: [stripes(cw, stripeRow)] };
 		}
-		// Hunk separator
+		// Hunk separator with optional function context
 		if (line.type === "sep") {
-			const gap = line.newNum;
-			const label = gap && gap > 0 ? `··· ${gap} lines ···` : "···";
+			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum);
 			const g = `${BG_BASE} ${FG_DIM}${fit("", nw + 2)}${RST}${FG_RULE}│${RST} `;
 			return { gutter: g, contGutter: g, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, cw)}${RST}`] };
 		}
@@ -1314,8 +1316,12 @@ async function renderSplit(
 // ---------------------------------------------------------------------------
 
 export const __testing = {
+	computeHunkBlocks,
 	normalizeShikiContrast,
+	getSepStyle,
 	parseDiff,
+	parsePatchFiles,
+	resolveSepStyle,
 	renderSplit,
 	renderUnified,
 };
@@ -1356,6 +1362,8 @@ function normalizeOptionalPositiveInteger(value: unknown, name: string): number 
 export default async function diffRendererExtension(pi: ExtensionAPI): Promise<void> {
 	// Apply diff theme palette from settings/presets before rendering
 	applySharedDiffPalette();
+	// Resolve hunk separator style from env var
+	resolveSepStyle();
 
 	let createWriteTool: any, createEditTool: any, getMarkdownTheme: any, TextComponent: any, MarkdownComponent: any;
 	try {

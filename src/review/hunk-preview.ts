@@ -5,7 +5,7 @@ import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
 import type { BundledLanguage, BundledTheme } from "shiki";
 
-import type { ParsedDiff } from "../core/diff.js";
+import { computeHunkBlocks, getSepStyle, type ParsedDiff, sepLabelSplit, sepLabelUnified } from "../core/diff.js";
 import type { ReviewHunk } from "./git.js";
 
 export interface ReviewHunkPreviewInput {
@@ -840,8 +840,7 @@ export async function renderUnified(
 	while (index < visible.length) {
 		const line = visible[index];
 		if (line.type === "sep") {
-			const gap = line.newNum;
-			const label = gap && gap > 0 ? ` ${gap} unmodified lines ` : "···";
+			const label = sepLabelUnified(getSepStyle(), line.hunkMeta, line.newNum);
 			const totalWidth = Math.min(renderWidth, 72);
 			const padding = Math.max(0, totalWidth - label.length - 2);
 			const left = Math.floor(padding / 2);
@@ -915,31 +914,32 @@ export async function renderSplit(
 	if (!shouldUseSplit(diff, width, maxLines)) return renderUnified(diff, language, maxLines, colors, width);
 	if (!diff.lines.length) return "";
 
+	// Build paired rows using HunkBlock model
 	type Row = { left: ParsedDiff["lines"][number] | null; right: ParsedDiff["lines"][number] | null };
 	const rows: Row[] = [];
-	let index = 0;
-	while (index < diff.lines.length) {
-		const line = diff.lines[index];
-		if (line.type === "sep" || line.type === "ctx") {
+	let idx = 0;
+	while (idx < diff.lines.length) {
+		const line = diff.lines[idx];
+		if (line.type === "ctx") {
 			rows.push({ left: line, right: line });
-			index += 1;
+			idx++;
 			continue;
 		}
-		const deletions: ParsedDiff["lines"] = [];
-		const additions: ParsedDiff["lines"] = [];
-		while (index < diff.lines.length && diff.lines[index]?.type === "del") {
-			const deletion = diff.lines[index];
-			if (deletion) deletions.push(deletion);
-			index += 1;
+		if (line.type === "sep") {
+			rows.push({ left: line, right: line });
+			idx++;
+			continue;
 		}
-		while (index < diff.lines.length && diff.lines[index]?.type === "add") {
-			const addition = diff.lines[index];
-			if (addition) additions.push(addition);
-			index += 1;
+		// Use computeHunkBlocks for remaining diff
+		const blocks = computeHunkBlocks({ lines: diff.lines.slice(idx), added: 0, removed: 0, chars: 0 });
+		for (const block of blocks) {
+			const count = Math.max(block.deletions.length, block.additions.length);
+			for (let r = 0; r < count; r++) {
+				rows.push({ left: block.deletions[r] ?? null, right: block.additions[r] ?? null });
+			}
+			idx += block.deletions.length + block.additions.length;
 		}
-		const count = Math.max(deletions.length, additions.length);
-		for (let rowIndex = 0; rowIndex < count; rowIndex++)
-			rows.push({ left: deletions[rowIndex] ?? null, right: additions[rowIndex] ?? null });
+		break;
 	}
 
 	const visible = rows.slice(0, maxLines);
@@ -982,7 +982,7 @@ export async function renderSplit(
 			return { gutter, continuation: gutter, bodyRows: [emptyBody] };
 		}
 		if (line.type === "sep") {
-			const label = line.newNum && line.newNum > 0 ? `··· ${line.newNum} lines ···` : "···";
+			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum);
 			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 2)}${RST}${FG_RULE}│${RST} `;
 			return { gutter, continuation: gutter, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, codeWidth)}${RST}`] };
 		}

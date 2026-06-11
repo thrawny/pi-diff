@@ -3,11 +3,12 @@ import { extname } from "node:path";
 
 import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
-import type { BundledLanguage, BundledTheme } from "shiki";
-
-import { getSepStyle, type ParsedDiff, sepLabelSplit, sepLabelUnified } from "../core/diff.js";
 import { configIndicatorStyle } from "../core/config.js";
+import { getSepStyle, type ParsedDiff, sepLabelSplit, sepLabelUnified } from "../core/diff.js";
 import type { ReviewHunk } from "./git.js";
+
+type BundledLanguage = Parameters<typeof codeToANSI>[1];
+type BundledTheme = Parameters<typeof codeToANSI>[2];
 
 export interface ReviewHunkPreviewInput {
 	hunk: ReviewHunk;
@@ -54,12 +55,12 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	default: {
 		name: "default",
 		description: "Original pi-diff colors — tuned for dark theme bases (~#1e1e2e)",
-		bgAdd: "#162620",
-		bgDel: "#2d1919",
-		bgAddHighlight: "#234b32",
-		bgDelHighlight: "#502323",
-		bgGutterAdd: "#12201a",
-		bgGutterDel: "#261616",
+		bgAdd: "#1a3324",
+		bgDel: "#3d2020",
+		bgAddHighlight: "#2d5c3a",
+		bgDelHighlight: "#5c2d2d",
+		bgGutterAdd: "#16281e",
+		bgGutterDel: "#301c1c",
 		bgEmpty: "#121212",
 		fgDim: "#505050",
 		fgLnum: "#646464",
@@ -70,12 +71,12 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	midnight: {
 		name: "midnight",
 		description: "Subtle tints for pure black (#000000) terminal backgrounds",
-		bgAdd: "#0d1a12",
-		bgDel: "#1a0d0d",
+		bgAdd: "#101e15",
+		bgDel: "#1e1010",
 		bgAddHighlight: "#1a3825",
 		bgDelHighlight: "#381a1a",
-		bgGutterAdd: "#091208",
-		bgGutterDel: "#120908",
+		bgGutterAdd: "#0c180c",
+		bgGutterDel: "#180c0c",
 		bgEmpty: "#080808",
 		fgDim: "#404040",
 		fgLnum: "#505050",
@@ -86,12 +87,12 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	subtle: {
 		name: "subtle",
 		description: "Minimal backgrounds — barely-there tints for a clean look",
-		bgAdd: "#081008",
-		bgDel: "#100808",
+		bgAdd: "#0c160c",
+		bgDel: "#160c0c",
 		bgAddHighlight: "#122818",
 		bgDelHighlight: "#281212",
-		bgGutterAdd: "#060c06",
-		bgGutterDel: "#0c0606",
+		bgGutterAdd: "#080e08",
+		bgGutterDel: "#0e0808",
 		bgEmpty: "#060606",
 		fgDim: "#383838",
 		fgLnum: "#484848",
@@ -102,12 +103,12 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	neon: {
 		name: "neon",
 		description: "Higher contrast backgrounds for better visibility",
-		bgAdd: "#1a3320",
-		bgDel: "#331a16",
+		bgAdd: "#1e3a28",
+		bgDel: "#3a1c18",
 		bgAddHighlight: "#2d5c3a",
 		bgDelHighlight: "#5c2d2d",
-		bgGutterAdd: "#142818",
-		bgGutterDel: "#28120e",
+		bgGutterAdd: "#182c1c",
+		bgGutterDel: "#2c1410",
 		bgEmpty: "#141414",
 		fgDim: "#606060",
 		fgLnum: "#787878",
@@ -131,14 +132,13 @@ const DEFAULT_RENDER_WIDTH = 120;
 const MIN_RENDER_WIDTH = 40;
 
 let RST = "\x1b[0m";
-const BOLD = "\x1b[1m";
 const DIM = "\x1b[2m";
-let BG_ADD = envBg("DIFF_BG_ADD", "\x1b[48;2;22;38;32m");
-let BG_DEL = envBg("DIFF_BG_DEL", "\x1b[48;2;45;25;25m");
-let BG_ADD_W = envBg("DIFF_BG_ADD_HL", "\x1b[48;2;35;75;50m");
-let BG_DEL_W = envBg("DIFF_BG_DEL_HL", "\x1b[48;2;80;35;35m");
-let BG_GUTTER_ADD = envBg("DIFF_BG_GUTTER_ADD", "\x1b[48;2;18;32;26m");
-let BG_GUTTER_DEL = envBg("DIFF_BG_GUTTER_DEL", "\x1b[48;2;38;22;22m");
+let BG_ADD = envBg("DIFF_BG_ADD", "\x1b[48;2;30;52;40m");
+let BG_DEL = envBg("DIFF_BG_DEL", "\x1b[48;2;60;30;30m");
+let BG_ADD_W = envBg("DIFF_BG_ADD_HL", "\x1b[48;2;45;90;60m");
+let BG_DEL_W = envBg("DIFF_BG_DEL_HL", "\x1b[48;2;100;45;45m");
+let BG_GUTTER_ADD = envBg("DIFF_BG_GUTTER_ADD", "\x1b[48;2;24;42;32m");
+let BG_GUTTER_DEL = envBg("DIFF_BG_GUTTER_DEL", "\x1b[48;2;48;28;28m");
 let BG_EMPTY = "\x1b[48;2;18;18;18m";
 let FG_ADD = envFg("DIFF_FG_ADD", "\x1b[38;2;100;180;120m");
 let FG_DEL = envFg("DIFF_FG_DEL", "\x1b[38;2;200;100;100m");
@@ -327,12 +327,12 @@ function autoDeriveBgFromTheme(theme: any): void {
 			} catch {}
 		}
 
-		BG_ADD = mixBg(addBase, addRgb, 0.08);
-		BG_DEL = mixBg(delBase, delRgb, 0.1);
-		BG_ADD_W = mixBg(addBase, addRgb, 0.2);
-		BG_DEL_W = mixBg(delBase, delRgb, 0.22);
-		BG_GUTTER_ADD = mixBg(addBase, addRgb, 0.05);
-		BG_GUTTER_DEL = mixBg(delBase, delRgb, 0.06);
+		BG_ADD = mixBg(addBase, addRgb, 0.15);
+		BG_DEL = mixBg(delBase, delRgb, 0.18);
+		BG_ADD_W = mixBg(addBase, addRgb, 0.3);
+		BG_DEL_W = mixBg(delBase, delRgb, 0.35);
+		BG_GUTTER_ADD = mixBg(addBase, addRgb, 0.1);
+		BG_GUTTER_DEL = mixBg(delBase, delRgb, 0.12);
 		BG_EMPTY = BG_BASE;
 		RST = `\x1b[0m${BG_BASE}`;
 		DIVIDER = `${FG_RULE}│${RST}`;
@@ -656,7 +656,7 @@ function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number): boole
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
 	const half = Math.floor((width - 1) / 2);
-	const gutterWidth = numberWidth + 5;
+	const gutterWidth = numberWidth + 4;
 	const codeWidth = Math.max(12, half - gutterWidth);
 	if (codeWidth < SPLIT_MIN_CODE_WIDTH) return false;
 	const visibleLines = diff.lines.slice(0, maxRows);
@@ -738,7 +738,6 @@ function wordDiffAnalysis(
 }
 
 function injectBg(ansiLine: string, ranges: Array<[number, number]>, baseBg: string, highlightBg: string): string {
-	if (!ranges.length) return baseBg + ansiLine + RST;
 	let output = baseBg;
 	let visible = 0;
 	let inHighlight = false;
@@ -802,7 +801,7 @@ export async function renderUnified(
 		2,
 		String(Math.max(...visible.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
-	const gutterWidth = numberWidth + 5;
+	const gutterWidth = numberWidth + 4;
 	const codeWidth = Math.max(20, renderWidth - gutterWidth);
 	const canHighlight = diff.chars <= MAX_HL_CHARS && visible.length <= maxLines;
 
@@ -819,7 +818,7 @@ export async function renderUnified(
 	let oldIndex = 0;
 	let newIndex = 0;
 	let index = 0;
-	const output: string[] = [rule(renderWidth)];
+	const output: string[] = [];
 
 	function emitRow(
 		number: number | null,
@@ -832,8 +831,8 @@ export async function renderUnified(
 		const borderFg = sign === "-" ? colors.fgDel : sign === "+" ? colors.fgAdd : "";
 		const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
 		const numFg = borderFg || FG_LNUM;
-		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${signFg}${sign}${RST} ${DIVIDER} `;
-		const continuationGutter = `${border}${gutterBg}${" ".repeat(numberWidth + 1)}${RST} ${DIVIDER} `;
+		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
+		const continuationGutter = `${border}${gutterBg}${" ".repeat(numberWidth + 3)}${RST}`;
 		const rows = wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), bodyBg);
 		output.push(`${gutter}${rows[0]}${RST}`);
 		for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
@@ -864,13 +863,19 @@ export async function renderUnified(
 
 		const deletions: Array<{ line: ParsedDiff["lines"][number]; hl: string }> = [];
 		while (index < visible.length && visible[index].type === "del") {
-			deletions.push({ line: visible[index], hl: oldHighlights[oldIndex] ?? visible[index].content });
+			deletions.push({
+				line: visible[index],
+				hl: oldHighlights[oldIndex] ?? visible[index].content,
+			});
 			oldIndex += 1;
 			index += 1;
 		}
 		const additions: Array<{ line: ParsedDiff["lines"][number]; hl: string }> = [];
 		while (index < visible.length && visible[index].type === "add") {
-			additions.push({ line: visible[index], hl: newHighlights[newIndex] ?? visible[index].content });
+			additions.push({
+				line: visible[index],
+				hl: newHighlights[newIndex] ?? visible[index].content,
+			});
 			newIndex += 1;
 			index += 1;
 		}
@@ -881,27 +886,26 @@ export async function renderUnified(
 		if (isPaired && wordDiffBalanced && wordDiff.similarity >= WORD_DIFF_MIN_SIM && canHighlight) {
 			const deletionBody = injectBg(deletions[0].hl, wordDiff.oldRanges, BG_DEL, BG_DEL_W);
 			const additionBody = injectBg(additions[0].hl, wordDiff.newRanges, BG_ADD, BG_ADD_W);
-			emitRow(deletions[0].line.oldNum, "-", BG_GUTTER_DEL, `${colors.fgDel}${BOLD}`, deletionBody, BG_DEL);
-			emitRow(additions[0].line.newNum, "+", BG_GUTTER_ADD, `${colors.fgAdd}${BOLD}`, additionBody, BG_ADD);
+			emitRow(deletions[0].line.oldNum, "-", BG_GUTTER_DEL, colors.fgDel, deletionBody, BG_DEL);
+			emitRow(additions[0].line.newNum, "+", BG_GUTTER_ADD, colors.fgAdd, additionBody, BG_ADD);
 			continue;
 		}
 		if (isPaired && wordDiffBalanced && wordDiff.similarity >= WORD_DIFF_MIN_SIM && !canHighlight) {
 			const plain = plainWordDiff(deletions[0].line.content, additions[0].line.content);
-			emitRow(deletions[0].line.oldNum, "-", BG_GUTTER_DEL, `${colors.fgDel}${BOLD}`, `${BG_DEL}${plain.old}`, BG_DEL);
-			emitRow(additions[0].line.newNum, "+", BG_GUTTER_ADD, `${colors.fgAdd}${BOLD}`, `${BG_ADD}${plain.new}`, BG_ADD);
+			emitRow(deletions[0].line.oldNum, "-", BG_GUTTER_DEL, colors.fgDel, `${BG_DEL}${plain.old}`, BG_DEL);
+			emitRow(additions[0].line.newNum, "+", BG_GUTTER_ADD, colors.fgAdd, `${BG_ADD}${plain.new}`, BG_ADD);
 			continue;
 		}
 		for (const deletion of deletions) {
-			const body = canHighlight ? `${BG_DEL}${deletion.hl}` : `${BG_DEL}${deletion.line.content}`;
-			emitRow(deletion.line.oldNum, "-", BG_GUTTER_DEL, `${colors.fgDel}${BOLD}`, body, BG_DEL);
+			const body = canHighlight ? injectBg(deletion.hl, [], BG_DEL, BG_DEL) : `${BG_DEL}${deletion.line.content}`;
+			emitRow(deletion.line.oldNum, "-", BG_GUTTER_DEL, colors.fgDel, body, BG_DEL);
 		}
 		for (const addition of additions) {
-			const body = canHighlight ? `${BG_ADD}${addition.hl}` : `${BG_ADD}${addition.line.content}`;
-			emitRow(addition.line.newNum, "+", BG_GUTTER_ADD, `${colors.fgAdd}${BOLD}`, body, BG_ADD);
+			const body = canHighlight ? injectBg(addition.hl, [], BG_ADD, BG_ADD) : `${BG_ADD}${addition.line.content}`;
+			emitRow(addition.line.newNum, "+", BG_GUTTER_ADD, colors.fgAdd, body, BG_ADD);
 		}
 	}
 
-	output.push(rule(renderWidth));
 	if (diff.lines.length > visible.length) {
 		output.push(`${BG_BASE}${FG_DIM}  … ${diff.lines.length - visible.length} more lines${RST}`);
 	}
@@ -919,7 +923,10 @@ export async function renderSplit(
 	if (!diff.lines.length) return "";
 
 	// Build rows — process ctx/sep individually, group del/add blocks
-	type Row = { left: ParsedDiff["lines"][number] | null; right: ParsedDiff["lines"][number] | null };
+	type Row = {
+		left: ParsedDiff["lines"][number] | null;
+		right: ParsedDiff["lines"][number] | null;
+	};
 	const rows: Row[] = [];
 	let idx = 0;
 	while (idx < diff.lines.length) {
@@ -948,8 +955,7 @@ export async function renderSplit(
 			idx++;
 		}
 		const count = Math.max(dels.length, adds.length);
-		for (let r = 0; r < count; r++)
-			rows.push({ left: dels[r] ?? null, right: adds[r] ?? null });
+		for (let r = 0; r < count; r++) rows.push({ left: dels[r] ?? null, right: adds[r] ?? null });
 	}
 
 	const visible = rows.slice(0, maxLines);
@@ -959,7 +965,7 @@ export async function renderSplit(
 		2,
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
-	const gutterWidth = numberWidth + 5;
+	const gutterWidth = numberWidth + 4;
 	const codeWidth = Math.max(12, half - gutterWidth);
 	const canHighlight = diff.chars <= MAX_HL_CHARS && visible.length * 2 <= maxLines * 2;
 
@@ -976,7 +982,6 @@ export async function renderSplit(
 	let leftIndex = 0;
 	let rightIndex = 0;
 	const output: string[] = [];
-	output.push(`${rule(half)}${FG_RULE}┊${RST}${rule(half)}`);
 
 	type HalfResult = { gutter: string; continuation: string; bodyRows: string[] };
 	const emptyBody = `${BG_EMPTY}${" ".repeat(codeWidth)}${RST}`;
@@ -988,13 +993,17 @@ export async function renderSplit(
 		side: "left" | "right",
 	): HalfResult {
 		if (!line) {
-			const gutter = `${BG_BASE} ${" ".repeat(numberWidth + 2)}${FG_RULE}│${RST} `;
+			const gutter = `${BG_BASE} ${" ".repeat(numberWidth + 3)}${RST}`;
 			return { gutter, continuation: gutter, bodyRows: [emptyBody] };
 		}
 		if (line.type === "sep") {
 			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
-			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 2)}${RST}${FG_RULE}│${RST} `;
-			return { gutter, continuation: gutter, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, codeWidth)}${RST}`] };
+			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 3)}${RST}`;
+			return {
+				gutter,
+				continuation: gutter,
+				bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, codeWidth)}${RST}`],
+			};
 		}
 		const isDeletion = line.type === "del";
 		const isAddition = line.type === "add";
@@ -1006,19 +1015,22 @@ export async function renderSplit(
 		const borderFg = isDeletion ? colors.fgDel : isAddition ? colors.fgAdd : "";
 		const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
 		const numFg = borderFg || FG_LNUM;
-		let body = isDeletion || isAddition ? `${codeBg}${highlight}` : `${BG_BASE}${DIM}${highlight}`;
+		let body = isDeletion || isAddition ? injectBg(highlight, [], codeBg, codeBg) : `${BG_BASE}${DIM}${highlight}`;
 		if (ranges && ranges.length > 0) body = injectBg(highlight, ranges, codeBg, isDeletion ? BG_DEL_W : BG_ADD_W);
-		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${signFg}${BOLD}${sign}${RST} ${FG_RULE}│${RST} `;
-		const continuation = `${border}${gutterBg}${" ".repeat(numberWidth + 1)}${RST} ${FG_RULE}│${RST} `;
-		return { gutter, continuation, bodyRows: wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), codeBg) };
+		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
+		const continuation = `${border}${gutterBg}${" ".repeat(numberWidth + 3)}${RST}`;
+		return {
+			gutter,
+			continuation,
+			bodyRows: wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), codeBg),
+		};
 	}
 
 	for (const row of visible) {
 		const isPairedChange = row.left?.type === "del" && row.right?.type === "add";
 		const wordDiff =
 			isPairedChange && row.left && row.right ? wordDiffAnalysis(row.left.content, row.right.content) : null;
-		const wordDiffBalanced =
-			wordDiff && wordDiff.oldRanges.length > 0 && wordDiff.newRanges.length > 0;
+		const wordDiffBalanced = wordDiff && wordDiff.oldRanges.length > 0 && wordDiff.newRanges.length > 0;
 		const leftHighlight = row.left && row.left.type !== "sep" ? (leftHighlights[leftIndex++] ?? row.left.content) : "";
 		const rightHighlight =
 			row.right && row.right.type !== "sep" ? (rightHighlights[rightIndex++] ?? row.right.content) : "";
@@ -1044,7 +1056,6 @@ export async function renderSplit(
 		}
 	}
 
-	output.push(`${rule(half)}${FG_RULE}┊${RST}${rule(half)}`);
 	if (rows.length > visible.length)
 		output.push(`${BG_BASE}${FG_DIM}  … ${rows.length - visible.length} more lines${RST}`);
 	return output.join("\n");

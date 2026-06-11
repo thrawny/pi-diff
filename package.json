@@ -1,6 +1,6 @@
 {
   "name": "@heyhuynhgiabuu/pi-diff",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "Shiki-powered terminal diff renderer for pi — syntax-highlighted, word-level diffs in split and unified views.",
   "keywords": [
     "diff",
@@ -45,6 +45,10 @@
     "dist/core/diff.d.ts.map",
     "dist/core/diff.js",
     "dist/core/diff.js.map",
+    "dist/core/replace.d.ts",
+    "dist/core/replace.d.ts.map",
+    "dist/core/replace.js",
+    "dist/core/replace.js.map",
     "dist/core/resolve-lines.d.ts",
     "dist/core/resolve-lines.d.ts.map",
     "dist/core/resolve-lines.js",

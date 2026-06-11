@@ -1,9 +1,11 @@
 import { extname } from "node:path";
 
 import { codeToANSI } from "@shikijs/cli";
-import type { BundledLanguage, BundledTheme } from "shiki";
 
 import type { ReviewViewportLine } from "./model.js";
+
+type BundledLanguage = Parameters<typeof codeToANSI>[1];
+type BundledTheme = Parameters<typeof codeToANSI>[2];
 
 export interface ReviewFilePreviewInput {
 	filePath: string;

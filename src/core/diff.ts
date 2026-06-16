@@ -195,7 +195,7 @@ export function getSepStyle(): HunkSeparatorStyle {
 
 /**
  * Generate a hunk separator label for the unified view.
- * Returns the full label including spacing, or "···" for empty/default.
+ * Returns the full label including spacing, or an empty string when no useful label exists.
  * If `content` is non-empty, it is used directly (e.g. "───── Edit 2 ─────").
  */
 export function sepLabelUnified(
@@ -209,32 +209,30 @@ export function sepLabelUnified(
 	const ctx = hunkMeta?.context;
 	switch (style) {
 		case "simple":
-			return "···";
+			return "";
 		case "gap":
 			if (gap && gap > 0) return ` ${gap} unmodified lines `;
-			return "···";
+			return "";
 		case "context":
 			if (ctx) return ` ${ctx} `;
 			if (gap && gap > 0) return ` ${gap} unmodified lines `;
-			return "···";
-		case "metadata": {
-			if (!hunkMeta) return "···";
-			const hdr = `@@ -${hunkMeta.oldStart},${hunkMeta.oldLines} +${hunkMeta.newStart},${hunkMeta.newLines} @@`;
-			const label = ctx ? `${hdr} ${ctx}` : hdr;
-			return ` ${label} `;
-		}
+			return "";
+		case "metadata":
+			if (ctx) return ` ${ctx} `;
+			if (gap && gap > 0) return ` +${gap} lines `;
+			return "";
 		case "auto":
 		default:
 			if (ctx && gap && gap > 0) return ` ${ctx} — +${gap} lines `;
 			if (ctx) return ` ${ctx} `;
 			if (gap && gap > 0) return ` +${gap} lines `;
-			return "···";
+			return "";
 	}
 }
 
 /**
  * Generate a hunk separator label for the split view.
- * Wraps the content in "··· ... ···".
+ * Returns useful context/gap labels without decorative ellipses.
  * If `content` is non-empty, it is used directly (e.g. "───── Edit 2 ─────").
  */
 export function sepLabelSplit(
@@ -248,27 +246,25 @@ export function sepLabelSplit(
 	const ctx = hunkMeta?.context;
 	switch (style) {
 		case "simple":
-			return "···";
+			return "";
 		case "gap":
-			if (gap && gap > 0) return `··· ${gap} lines ···`;
-			return "···";
+			if (gap && gap > 0) return ` ${gap} lines `;
+			return "";
 		case "context":
-			if (ctx && gap && gap > 0) return `··· ${ctx} — ${gap} lines ···`;
-			if (ctx) return `··· ${ctx} ···`;
-			if (gap && gap > 0) return `··· ${gap} lines ···`;
-			return "···";
-		case "metadata": {
-			if (!hunkMeta) return "···";
-			const hdr = `@@ -${hunkMeta.oldStart},${hunkMeta.oldLines} +${hunkMeta.newStart},${hunkMeta.newLines} @@`;
-			const content = ctx ? `${hdr} ${ctx}` : hdr;
-			return `··· ${content} ···`;
-		}
+			if (ctx && gap && gap > 0) return ` ${ctx} — ${gap} lines `;
+			if (ctx) return ` ${ctx} `;
+			if (gap && gap > 0) return ` ${gap} lines `;
+			return "";
+		case "metadata":
+			if (ctx) return ` ${ctx} `;
+			if (gap && gap > 0) return ` ${gap} lines `;
+			return "";
 		case "auto":
 		default:
-			if (ctx && gap && gap > 0) return `··· ${ctx} — +${gap} lines ···`;
-			if (ctx) return `··· ${ctx} ···`;
-			if (gap && gap > 0) return `··· +${gap} lines ···`;
-			return "···";
+			if (ctx && gap && gap > 0) return ` ${ctx} — +${gap} lines `;
+			if (ctx) return ` ${ctx} `;
+			if (gap && gap > 0) return ` +${gap} lines `;
+			return "";
 	}
 }
 

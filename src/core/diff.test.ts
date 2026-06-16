@@ -224,21 +224,21 @@ describe("sepLabelUnified", () => {
 		expect(sepLabelUnified("auto", makeMeta(), 5)).toBe(" +5 lines ");
 	});
 
-	it("auto style shows ellipsis when nothing available", () => {
-		expect(sepLabelUnified("auto", makeMeta(), null)).toBe("···");
+	it("auto style omits separator when nothing useful is available", () => {
+		expect(sepLabelUnified("auto", makeMeta(), null)).toBe("");
 	});
 
-	it("simple style always shows ellipsis", () => {
-		expect(sepLabelUnified("simple", makeMeta("fn()"), 5)).toBe("···");
-		expect(sepLabelUnified("simple", makeMeta(), null)).toBe("···");
+	it("simple style omits redundant separator", () => {
+		expect(sepLabelUnified("simple", makeMeta("fn()"), 5)).toBe("");
+		expect(sepLabelUnified("simple", makeMeta(), null)).toBe("");
 	});
 
 	it("gap style shows gap", () => {
 		expect(sepLabelUnified("gap", makeMeta("fn()"), 5)).toBe(" 5 unmodified lines ");
 	});
 
-	it("gap style falls back to ellipsis", () => {
-		expect(sepLabelUnified("gap", makeMeta(), null)).toBe("···");
+	it("gap style omits separator without gap", () => {
+		expect(sepLabelUnified("gap", makeMeta(), null)).toBe("");
 	});
 
 	it("context style shows context", () => {
@@ -249,40 +249,40 @@ describe("sepLabelUnified", () => {
 		expect(sepLabelUnified("context", makeMeta(), 5)).toBe(" 5 unmodified lines ");
 	});
 
-	it("metadata style shows full header", () => {
-		expect(sepLabelUnified("metadata", makeMeta("fn()"), 5)).toBe(" @@ -10,6 +10,8 @@ fn() ");
+	it("metadata style shows context without raw hunk header", () => {
+		expect(sepLabelUnified("metadata", makeMeta("fn()"), 5)).toBe(" fn() ");
 	});
 
-	it("metadata style without context", () => {
-		expect(sepLabelUnified("metadata", makeMeta(), 5)).toBe(" @@ -10,6 +10,8 @@ ");
+	it("metadata style without context falls back to gap", () => {
+		expect(sepLabelUnified("metadata", makeMeta(), 5)).toBe(" +5 lines ");
 	});
 
-	it("metadata style falls back to ellipsis without hunkMeta", () => {
-		expect(sepLabelUnified("metadata", undefined, null)).toBe("···");
+	it("metadata style omits separator without useful label", () => {
+		expect(sepLabelUnified("metadata", undefined, null)).toBe("");
 	});
 });
 
 describe("sepLabelSplit", () => {
 	const makeMeta = (ctx?: string): HunkMeta => ({ oldStart: 10, oldLines: 6, newStart: 10, newLines: 8, context: ctx });
 
-	it("auto style shows context + gap", () => {
-		expect(sepLabelSplit("auto", makeMeta("fn()"), 5)).toBe("··· fn() — +5 lines ···");
+	it("auto style shows context + gap without decorative ellipses", () => {
+		expect(sepLabelSplit("auto", makeMeta("fn()"), 5)).toBe(" fn() — +5 lines ");
 	});
 
-	it("context style shows context", () => {
-		expect(sepLabelSplit("context", makeMeta("fn()"), 5)).toBe("··· fn() — 5 lines ···");
+	it("context style shows context without decorative ellipses", () => {
+		expect(sepLabelSplit("context", makeMeta("fn()"), 5)).toBe(" fn() — 5 lines ");
 	});
 
-	it("simple style shows ellipsis", () => {
-		expect(sepLabelSplit("simple", makeMeta("fn()"), 5)).toBe("···");
+	it("simple style omits redundant separator", () => {
+		expect(sepLabelSplit("simple", makeMeta("fn()"), 5)).toBe("");
 	});
 
-	it("gap style shows gap", () => {
-		expect(sepLabelSplit("gap", makeMeta("fn()"), 5)).toBe("··· 5 lines ···");
+	it("gap style shows gap without decorative ellipses", () => {
+		expect(sepLabelSplit("gap", makeMeta("fn()"), 5)).toBe(" 5 lines ");
 	});
 
-	it("metadata style shows header with context", () => {
-		expect(sepLabelSplit("metadata", makeMeta("fn()"), 5)).toBe("··· @@ -10,6 +10,8 @@ fn() ···");
+	it("metadata style shows context without raw hunk header or ellipses", () => {
+		expect(sepLabelSplit("metadata", makeMeta("fn()"), 5)).toBe(" fn() ");
 	});
 });
 

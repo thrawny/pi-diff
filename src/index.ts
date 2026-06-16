@@ -279,8 +279,8 @@ function autoDeriveBgFromTheme(theme: PiTheme): void {
     // flashes between styled segments when toolSuccessBg is non-black
     RST = `\x1b[0m${BG_BASE}`;
 
-    // Rebuild derived constants
-    DIVIDER = `${FG_RULE}│${RST}`;
+        // Rebuild derived constants
+        DIVIDER = `${FG_RULE}${RST}`;
   } catch {
     // Fall back to defaults silently
   }
@@ -400,7 +400,7 @@ function applyDiffPalette(): void {
   if (shiki) THEME = shiki as BundledTheme;
 
   // --- Rebuild derived constants ---
-  DIVIDER = `${FG_RULE}│${RST}`;
+  DIVIDER = `${FG_RULE}${RST}`;
   DEFAULT_DIFF_COLORS = { fgAdd: FG_ADD, fgDel: FG_DEL, fgCtx: FG_DIM };
 
   // If no explicit bg config, auto-derive will run on first render
@@ -439,10 +439,10 @@ function envBg(name: string, fallback: string): string {
 // --- Split-view thresholds ---
 // Split is preferred when there's real room. At narrow widths, a clean stacked
 // (unified) view is better than a cramped split with wrapping.
-const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 150); // need ≥150 cols for split to breathe
-const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 60); // ≥60 code cols per side
-const SPLIT_MAX_WRAP_RATIO = 0.2; // if >20% lines wrap in split, fall back to stacked
-const SPLIT_MAX_WRAP_LINES = 8; // absolute cap before unified fallback
+const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 80); // allow split in normal terminals
+const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 24); // short balanced hunks can split
+const SPLIT_MAX_WRAP_RATIO = 0.35; // wrap-heavy hunks fall back to unified
+const SPLIT_MAX_WRAP_LINES = 10; // absolute cap before unified fallback
 
 // --- Terminal bounds ---
 const MAX_TERM_WIDTH = 210; // max for 1728px wide display (~205 cols at typical font)
@@ -503,7 +503,7 @@ function stripes(w: number, _rowOffset: number): string {
   return BG_BASE + FG_STRIPE + "╱".repeat(w) + RST;
 }
 
-let DIVIDER = `${FG_RULE}│${RST}`;
+let DIVIDER = `${FG_RULE}${RST}`;
 const ESC_RE = "\u001b";
 const ANSI_RE = new RegExp(`${ESC_RE}\\[[0-9;]*m`, "g");
 const ANSI_CAPTURE_RE = new RegExp(`${ESC_RE}\\[([^m]*)m`, "g");
@@ -808,13 +808,20 @@ function shouldUseSplit(diff: ParsedDiff, tw: number, maxRows = MAX_PREVIEW_LINE
     2,
     String(Math.max(...diff.lines.map((l) => l.oldNum ?? l.newNum ?? 0), 0)).length,
   );
-  const half = Math.floor((tw - 1) / 2); // -1 for center divider
+  const half = Math.floor(tw / 2);
   const gw = nw + 4; // border + num + spaces around sign
   const cw = Math.max(12, half - gw);
   if (cw < SPLIT_MIN_CODE_WIDTH) return false;
 
-  // Estimate how many lines would need wrapping at this code width
+  // Split view only helps balanced replacements. One-sided or heavily
+  // imbalanced hunks waste a column and should use unified rendering.
   const vis = diff.lines.slice(0, maxRows);
+  const visibleAdd = vis.filter((line) => line.type === "add").length;
+  const visibleDel = vis.filter((line) => line.type === "del").length;
+  if (visibleAdd === 0 || visibleDel === 0) return false;
+  if (Math.max(visibleAdd, visibleDel) > Math.min(visibleAdd, visibleDel) * 2) return false;
+
+
   let contentLines = 0;
   let wrapCandidates = 0;
   for (const l of vis) {
@@ -1099,6 +1106,10 @@ async function renderUnified(
     // Hunk separator — collapsed context with optional function context
     if (l.type === "sep") {
       const label = sepLabelUnified(getSepStyle(), l.hunkMeta, l.newNum, l.content);
+      if (!label) {
+        idx++;
+        continue;
+      }
       const totalW = Math.min(tw, 72);
       const pad = Math.max(0, totalW - label.length - 2);
       const half1 = Math.floor(pad / 2),
@@ -1217,14 +1228,13 @@ async function renderSplit(
     const n = Math.max(dels.length, adds.length);
     for (let j = 0; j < n; j++) rows.push({ left: dels[j] ?? null, right: adds[j] ?? null });
   }
-
   const vis = rows.slice(0, max);
-  const half = Math.floor((tw - 1) / 2); // -1 for center divider
   const nw = Math.max(
     2,
     String(Math.max(...diff.lines.map((l) => l.oldNum ?? l.newNum ?? 0), 0)).length,
   );
   const gw = nw + 4; // border + num + spaces around sign
+  const half = Math.floor(tw / 2);
   const cw = Math.max(12, half - gw);
   const canHL = diff.chars <= MAX_HL_CHARS && vis.length * 2 <= MAX_RENDER_LINES * 2;
 
@@ -1255,16 +1265,14 @@ async function renderSplit(
     ranges: Array<[number, number]> | null,
     side: "left" | "right",
   ): HalfResult {
-    // Empty filler — diagonal stripes
+    // Empty filler — render nothing to avoid dead-column gaps.
     if (!line) {
-      const gw2 = nw + 4; // border + number + spaces around sign
-      const gPat = FG_STRIPE + "╱".repeat(gw2) + RST;
-      const g = gPat;
-      return { gutter: g, contGutter: g, bodyRows: [stripes(cw, stripeRow)] };
+      return { gutter: "", contGutter: "", bodyRows: [""] };
     }
     // Hunk separator with optional function context
     if (line.type === "sep") {
       const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
+      if (!label) return { gutter: "", contGutter: "", bodyRows: [""] };
       const g = `${BG_BASE} ${FG_DIM}${fit("", nw + 3)}${RST}`;
       return { gutter: g, contGutter: g, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, cw)}${RST}`] };
     }
@@ -1308,7 +1316,7 @@ async function renderSplit(
   const hdrOld = `${BG_BASE}${" ".repeat(Math.max(0, nw - 2))}${dc.fgDel}${DIM}old${RST}`;
   const hdrNew = `${BG_BASE}${" ".repeat(Math.max(0, nw - 2))}${dc.fgAdd}${DIM}new${RST}`;
   out.push(
-    `${BG_BASE}${hdrOld}${" ".repeat(Math.max(0, half - nw - 1))}${FG_RULE}┊${RST}${hdrNew}`,
+    `${BG_BASE}${hdrOld}${" ".repeat(Math.max(0, half - nw))}${hdrNew}`,
   );
 
   for (const r of vis) {
@@ -1339,20 +1347,15 @@ async function renderSplit(
       rResult = half_build(rightLine, rhl, null, "right");
     }
 
-    // Compose wrapped rows — pad shorter side with striped continuation rows
+    // Compose wrapped rows; missing sides render empty to avoid dead-column gaps.
     const maxRows = Math.max(lResult.bodyRows.length, rResult.bodyRows.length);
-    const leftIsEmpty = !r.left;
-    const rightIsEmpty = !r.right;
     for (let row = 0; row < maxRows; row++) {
       const lg = row === 0 ? lResult.gutter : lResult.contGutter;
       const rg = row === 0 ? rResult.gutter : rResult.contGutter;
-      const lb =
-        lResult.bodyRows[row] ??
-        (leftIsEmpty ? stripes(cw, stripeRow) : `${BG_EMPTY}${" ".repeat(cw)}${RST}`);
-      const rb =
-        rResult.bodyRows[row] ??
-        (rightIsEmpty ? stripes(cw, stripeRow) : `${BG_EMPTY}${" ".repeat(cw)}${RST}`);
-      out.push(`${lg}${lb}${DIVIDER}${rg}${rb}`);
+      const lb = lResult.bodyRows[row] ?? "";
+      const rb = rResult.bodyRows[row] ?? "";
+      if (!lg && !rg && !lb && !rb) continue;
+      out.push(`${lg}${lb.trimEnd()}${rg}${rb.trimEnd()}`);
       stripeRow++;
     }
   }

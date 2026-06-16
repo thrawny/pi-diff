@@ -118,10 +118,10 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	},
 };
 
-const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 150);
-const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 60);
-const SPLIT_MAX_WRAP_RATIO = 0.2;
-const SPLIT_MAX_WRAP_LINES = 8;
+const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 80);
+const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 24);
+const SPLIT_MAX_WRAP_RATIO = 0.35;
+const SPLIT_MAX_WRAP_LINES = 10;
 const MAX_HL_CHARS = 80_000;
 const CACHE_LIMIT = 192;
 const WORD_DIFF_MIN_SIM = 0.15;
@@ -151,7 +151,7 @@ function getBorderBar(): string {
 	const style = configIndicatorStyle();
 	return style === "none" ? " " : "▌";
 }
-let DIVIDER = `${FG_RULE}│${RST}`;
+let DIVIDER = `${FG_RULE}${RST}`;
 const ESC_RE = "\u001b";
 const ANSI_RE = new RegExp(`${ESC_RE}\\[[0-9;]*m`, "g");
 const ANSI_CAPTURE_RE = new RegExp(`${ESC_RE}\\[([^m]*)m`, "g");
@@ -335,7 +335,7 @@ function autoDeriveBgFromTheme(theme: any): void {
 		BG_GUTTER_DEL = mixBg(delBase, delRgb, 0.12);
 		BG_EMPTY = BG_BASE;
 		RST = `\x1b[0m${BG_BASE}`;
-		DIVIDER = `${FG_RULE}│${RST}`;
+		DIVIDER = `${FG_RULE}${RST}`;
 	} catch {}
 }
 
@@ -432,7 +432,7 @@ export function applyDiffPalette(): void {
 	});
 	const shikiTheme = overrides.shikiTheme ?? preset?.shikiTheme;
 	if (shikiTheme) THEME = shikiTheme as BundledTheme;
-	DIVIDER = `${FG_RULE}│${RST}`;
+	DIVIDER = `${FG_RULE}${RST}`;
 	DEFAULT_DIFF_COLORS = { fgAdd: FG_ADD, fgDel: FG_DEL, fgCtx: FG_DIM };
 	_autoDerivePending = !_hasExplicitBgConfig;
 }
@@ -655,11 +655,16 @@ function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number): boole
 		2,
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
-	const half = Math.floor((width - 1) / 2);
+	const half = Math.floor(width / 2);
 	const gutterWidth = numberWidth + 4;
 	const codeWidth = Math.max(12, half - gutterWidth);
 	if (codeWidth < SPLIT_MIN_CODE_WIDTH) return false;
 	const visibleLines = diff.lines.slice(0, maxRows);
+	const visibleAdd = visibleLines.filter((line) => line.type === "add").length;
+	const visibleDel = visibleLines.filter((line) => line.type === "del").length;
+	if (visibleAdd === 0 || visibleDel === 0) return false;
+	if (Math.max(visibleAdd, visibleDel) > Math.min(visibleAdd, visibleDel) * 2) return false;
+
 	let contentLines = 0;
 	let wrapCandidates = 0;
 	for (const line of visibleLines) {
@@ -844,6 +849,10 @@ export async function renderUnified(
 		const line = visible[index];
 		if (line.type === "sep") {
 			const label = sepLabelUnified(getSepStyle(), line.hunkMeta, line.newNum, line.content);
+			if (!label) {
+				index++;
+				continue;
+			}
 			const totalWidth = Math.min(renderWidth, 72);
 			const padding = Math.max(0, totalWidth - label.length - 2);
 			const left = Math.floor(padding / 2);
@@ -960,12 +969,12 @@ export async function renderSplit(
 
 	const visible = rows.slice(0, maxLines);
 	const renderWidth = Math.max(MIN_RENDER_WIDTH, width);
-	const half = Math.floor((renderWidth - 1) / 2);
 	const numberWidth = Math.max(
 		2,
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
 	const gutterWidth = numberWidth + 4;
+	const half = Math.floor(renderWidth / 2);
 	const codeWidth = Math.max(12, half - gutterWidth);
 	const canHighlight = diff.chars <= MAX_HL_CHARS && visible.length * 2 <= maxLines * 2;
 
@@ -984,7 +993,6 @@ export async function renderSplit(
 	const output: string[] = [];
 
 	type HalfResult = { gutter: string; continuation: string; bodyRows: string[] };
-	const emptyBody = `${BG_EMPTY}${" ".repeat(codeWidth)}${RST}`;
 
 	function buildHalf(
 		line: ParsedDiff["lines"][number] | null,
@@ -993,11 +1001,11 @@ export async function renderSplit(
 		side: "left" | "right",
 	): HalfResult {
 		if (!line) {
-			const gutter = `${BG_BASE} ${" ".repeat(numberWidth + 3)}${RST}`;
-			return { gutter, continuation: gutter, bodyRows: [emptyBody] };
+			return { gutter: "", continuation: "", bodyRows: [""] };
 		}
 		if (line.type === "sep") {
 			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
+			if (!label) return { gutter: "", continuation: "", bodyRows: [""] };
 			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 3)}${RST}`;
 			return {
 				gutter,
@@ -1048,10 +1056,11 @@ export async function renderSplit(
 		);
 		const maxRows = Math.max(leftHalf.bodyRows.length, rightHalf.bodyRows.length);
 		for (let rowIndex = 0; rowIndex < maxRows; rowIndex++) {
-			const leftBody = leftHalf.bodyRows[rowIndex] ?? emptyBody;
-			const rightBody = rightHalf.bodyRows[rowIndex] ?? emptyBody;
+			const leftBody = leftHalf.bodyRows[rowIndex] ?? "";
+			const rightBody = rightHalf.bodyRows[rowIndex] ?? "";
+			if (!leftHalf.gutter && !rightHalf.gutter && !leftBody && !rightBody) continue;
 			output.push(
-				`${rowIndex === 0 ? leftHalf.gutter : leftHalf.continuation}${leftBody}${DIVIDER}${rowIndex === 0 ? rightHalf.gutter : rightHalf.continuation}${rightBody}`,
+				`${rowIndex === 0 ? leftHalf.gutter : leftHalf.continuation}${leftBody.trimEnd()}${rowIndex === 0 ? rightHalf.gutter : rightHalf.continuation}${rightBody.trimEnd()}`,
 			);
 		}
 	}

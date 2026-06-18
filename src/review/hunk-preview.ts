@@ -340,7 +340,12 @@ function autoDeriveBgFromTheme(theme: any): void {
 }
 
 function loadDiffConfig(): DiffUserConfig {
-	const paths = [`${process.cwd()}/.pi/settings.json`, `${process.env.HOME ?? ""}/.pi/settings.json`];
+	const home = process.env.HOME ?? "";
+	const paths = [
+		`${process.cwd()}/.pi/settings.json`,
+		`${home}/.pi/agent/settings.json`,
+		`${home}/.pi/settings.json`,
+	];
 	for (const path of paths) {
 		try {
 			if (existsSync(path)) {

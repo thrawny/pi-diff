@@ -380,6 +380,10 @@ function applyDiffPalette(): void {
 	});
 	applyBg(null, "bgEmpty", preset?.bgEmpty, (v) => {
 		BG_EMPTY = v;
+		// Use the neutral empty/background color for pi-diff's own tool
+		// header boxes instead of Pi's success-green tool background.
+		BG_BASE = v;
+		RST = `\x1b[0m${BG_BASE}`;
 	});
 
 	// --- Apply foregrounds ---
@@ -592,8 +596,8 @@ function resolveDiffColors(theme?: PiTheme): DiffColors {
 		}
 	}
 
-	// Auto-derive bg colors from theme on first render (if no explicit preset/overrides)
-	if (_autoDerivePending && theme?.getFgAnsi) {
+	// Auto-derive bg colors from theme on first render only when no explicit preset/overrides were set.
+	if (!_hasExplicitBgConfig && _autoDerivePending && theme?.getFgAnsi) {
 		autoDeriveBgFromTheme(theme);
 		_autoDerivePending = false;
 	}

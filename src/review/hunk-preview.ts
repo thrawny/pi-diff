@@ -423,6 +423,8 @@ export function applyDiffPalette(): void {
 	});
 	applyBg(null, "bgEmpty", preset?.bgEmpty, (value) => {
 		BG_EMPTY = value;
+		BG_BASE = value;
+		RST = `\x1b[0m${BG_BASE}`;
 	});
 	applyFg("DIFF_FG_ADD", "fgAdd", preset?.fgAdd, (value) => {
 		FG_ADD = value;
@@ -491,7 +493,7 @@ export function resolveDiffColors(theme?: any): DiffColors {
 		_autoDerivePending = true;
 	}
 	_lastResolvedThemeKey = currentThemeKey;
-	if (theme?.getBgAnsi && BG_BASE === BG_DEFAULT) {
+	if (!_hasExplicitBgConfig && theme?.getBgAnsi && BG_BASE === BG_DEFAULT) {
 		try {
 			const bgAnsi = theme.getBgAnsi("toolSuccessBg");
 			const parsed = parseAnsiRgb(bgAnsi);
@@ -501,7 +503,7 @@ export function resolveDiffColors(theme?: any): DiffColors {
 			}
 		} catch {}
 	}
-	if (_autoDerivePending && theme?.getFgAnsi) {
+	if (!_hasExplicitBgConfig && _autoDerivePending && theme?.getFgAnsi) {
 		autoDeriveBgFromTheme(theme);
 		_autoDerivePending = false;
 	}

@@ -40,9 +40,12 @@ interface DiffPreset {
 	fgSafeMuted?: string;
 }
 
+type DiffView = "auto" | "unified";
+
 interface DiffUserConfig {
 	diffTheme?: string;
 	diffColors?: Record<string, string>;
+	diffView?: DiffView;
 }
 
 interface DiffColors {
@@ -122,6 +125,7 @@ const DIFF_PRESETS: Record<string, DiffPreset> = {
 	},
 };
 
+let DIFF_VIEW: DiffView = "auto";
 const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 80);
 const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 24);
 const SPLIT_MAX_WRAP_RATIO = 0.35;
@@ -355,8 +359,8 @@ function loadDiffConfig(): DiffUserConfig {
 		try {
 			if (existsSync(path)) {
 				const raw = JSON.parse(readFileSync(path, "utf-8"));
-				if (raw.diffTheme || raw.diffColors) {
-					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors };
+				if (raw.diffTheme || raw.diffColors || raw.diffView) {
+					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors, diffView: raw.diffView };
 				}
 			}
 		} catch {}
@@ -366,6 +370,7 @@ function loadDiffConfig(): DiffUserConfig {
 
 export function applyDiffPalette(): void {
 	const config = loadDiffConfig();
+	if (config.diffView) DIFF_VIEW = config.diffView;
 	const preset = config.diffTheme ? DIFF_PRESETS[config.diffTheme] : null;
 	if (preset) _hasExplicitBgConfig = true;
 	const overrides = config.diffColors ?? {};
@@ -659,6 +664,7 @@ function rule(width: number): string {
 }
 
 function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number, options: DiffRenderOptions = {}): boolean {
+	if (DIFF_VIEW === "unified") return false;
 	if (!diff.lines.length) return false;
 	if (width < SPLIT_MIN_WIDTH) return false;
 	const numberWidth = Math.max(

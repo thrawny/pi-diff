@@ -109,10 +109,13 @@ interface DiffPreset {
 	fgSafeMuted?: string;
 }
 
+type DiffView = "auto" | "unified";
+
 /** User diff config read from .pi/settings.json */
 interface DiffUserConfig {
 	diffTheme?: string;
 	diffColors?: Record<string, string>;
+	diffView?: DiffView;
 }
 
 const DIFF_PRESETS: Record<string, DiffPreset> = {
@@ -312,8 +315,8 @@ function loadDiffConfig(): DiffUserConfig {
 		try {
 			if (existsSync(p)) {
 				const raw = JSON.parse(readFileSync(p, "utf-8"));
-				if (raw.diffTheme || raw.diffColors) {
-					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors };
+				if (raw.diffTheme || raw.diffColors || raw.diffView) {
+					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors, diffView: raw.diffView };
 				}
 			}
 		} catch {
@@ -327,6 +330,7 @@ function loadDiffConfig(): DiffUserConfig {
  *  Called once during extension initialization. */
 function applyDiffPalette(): void {
 	const config = loadDiffConfig();
+	if (config.diffView) DIFF_VIEW = config.diffView;
 
 	// Load preset if specified
 	const preset = config.diffTheme ? DIFF_PRESETS[config.diffTheme] : null;
@@ -445,6 +449,7 @@ function envBg(name: string, fallback: string): string {
 // --- Split-view thresholds ---
 // Split is preferred when there's real room. At narrow widths, a clean stacked
 // (unified) view is better than a cramped split with wrapping.
+let DIFF_VIEW: DiffView = "auto";
 const SPLIT_MIN_WIDTH = envInt("DIFF_SPLIT_MIN_WIDTH", 80); // allow split in normal terminals
 const SPLIT_MIN_CODE_WIDTH = envInt("DIFF_SPLIT_MIN_CODE_WIDTH", 24); // short balanced hunks can split
 const SPLIT_MAX_WRAP_RATIO = 0.35; // wrap-heavy hunks fall back to unified
@@ -812,6 +817,7 @@ function rule(w: number): string {
  * or too many lines would wrap even with adaptive truncation.
  */
 function shouldUseSplit(diff: ParsedDiff, tw: number, maxRows = MAX_PREVIEW_LINES): boolean {
+	if (DIFF_VIEW === "unified") return false;
 	if (!diff.lines.length) return false;
 	if (tw < SPLIT_MIN_WIDTH) return false;
 

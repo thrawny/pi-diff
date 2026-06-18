@@ -302,7 +302,12 @@ function autoDeriveBgFromTheme(theme: PiTheme): void {
 
 /** Load diff theme config from .pi/settings.json (project-level, then global). */
 function loadDiffConfig(): DiffUserConfig {
-	const paths = [`${process.cwd()}/.pi/settings.json`, `${process.env.HOME ?? ""}/.pi/settings.json`];
+	const home = process.env.HOME ?? "";
+	const paths = [
+		`${process.cwd()}/.pi/settings.json`,
+		`${home}/.pi/agent/settings.json`,
+		`${home}/.pi/settings.json`,
+	];
 	for (const p of paths) {
 		try {
 			if (existsSync(p)) {

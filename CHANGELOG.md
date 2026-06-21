@@ -1,27 +1,43 @@
 # Changelog
 
-## [0.6.3] - 2026-06-21
+All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
+The format is based on [Keep a Changelog](https://keepachangelog.com/),
+and this project adheres to [Semantic Versioning](https://semver.org/).
+
+## [0.6.4] — 2025
 
 ### Fixed
 
-- Fixed published/local extension load failure caused by npm auto-installing Pi host
-  packages from `peerDependencies`. `pi-diff` no longer declares
-  `@earendil-works/pi-coding-agent` / `@earendil-works/pi-tui` as runtime peers,
-  avoiding a nested Pi runtime inside the host process.
-- Made review-diff command helpers avoid top-level runtime imports from Pi host
-  packages. Optional TUI pieces are loaded lazily only when needed.
+- `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui` moved
+  from `devDependencies` to `dependencies`. They are runtime imports, so
+  the npm-published version was missing them after
+  `npm install --omit=dev` (the default used by `pi install`).
 
-## [0.6.2] - 2026-06-17
+  This caused the following load error in pikit (and any project using
+  `pi install` to consume this package):
+
+  ```
+  pi loading extension "@heyhuynhgiabuu/pi-diff"
+    Cannot find package '@earendil-works/pi-coding-agent'
+  ```
 
 ### Changed
 
-- Improved edit/review diff rendering:
-  - removed raw hunk headers (`@@ -x,y +a,b @@`) from pretty output,
-  - removed decorative `...` separator fallback when no useful label exists,
-  - kept full-width split rendering for balanced replacements,
-  - switched one-sided or imbalanced hunks to unified rendering to avoid dead split columns,
-  - stopped rendering empty-side filler backgrounds in split rows.
+- Pinned `@earendil-works/pi-coding-agent` and `@earendil-works/pi-tui`
+  to `^0.79.0` (was `*`).
 
-### Fixed
+### Verified
 
-- Removed visible `│` center dividers and stale divider-width reservations from edit/review split rendering.
+- `npm run build` succeeds
+- `npm test` 143/143 pass
+- `tsc --noEmit` clean
+- The dist `dist/index.js` references `@earendil-works/pi-coding-agent`
+  (the correct, current package name)
+
+## [0.6.3] and earlier
+
+See the git history: `git log --oneline -- CHANGELOG.md`.
+
+[0.6.4]: https://github.com/buddingnewinsights/pi-diff/releases/tag/v0.6.4
+[Keep a Changelog]: https://keepachangelog.com/
+[Semantic Versioning]: https://semver.org/

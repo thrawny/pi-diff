@@ -1,6 +1,6 @@
 {
   "name": "@heyhuynhgiabuu/pi-diff",
-	"version": "0.6.2",
+  "version": "0.6.3",
   "description": "Shiki-powered terminal diff renderer for pi — syntax-highlighted, word-level diffs in split and unified views.",
   "keywords": [
     "diff",
@@ -124,17 +124,6 @@
     "typescript": "^5.0.0",
     "vitest": "^4.0.18"
   },
-  "peerDependencies": {
-    "@earendil-works/pi-coding-agent": "*",
-    "@earendil-works/pi-tui": "*",
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*"
-  },
-  "peerDependenciesMeta": {
-    "hunkdiff": {
-      "optional": true
-    }
-  },
   "pi": {
     "extensions": [
       "./dist/index.js"
@@ -142,5 +131,9 @@
     "prompts": [
       "./prompts"
     ]
+  },
+  "main": "./dist/index.js",
+  "exports": {
+    "default": "./dist/index.js"
   }
 }

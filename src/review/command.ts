@@ -1,7 +1,8 @@
 import { execFileSync } from "node:child_process";
+import { createRequire } from "node:module";
 
-import { type ExtensionAPI, type ExtensionContext, copyToClipboard, type KeybindingsManager, type MessageRenderOptions, type SessionBeforeForkEvent, type SessionBeforeSwitchEvent, type SessionStartEvent, type SessionTreeEvent, type Theme } from "@earendil-works/pi-coding-agent";
-import { type AutocompleteItem, Text, type TUI } from "@earendil-works/pi-tui";
+import type { ExtensionAPI, ExtensionContext, KeybindingsManager, MessageRenderOptions, SessionBeforeForkEvent, SessionBeforeSwitchEvent, SessionStartEvent, SessionTreeEvent, Theme } from "@earendil-works/pi-coding-agent";
+import type { AutocompleteItem, TUI } from "@earendil-works/pi-tui";
 
 import { type ReviewDiff, type ReviewDiffMode, readGitDiff } from "./git.js";
 import { getSelectedPreviewLine, selectPreviewLineForComment, syncPreviewSelection } from "./model.js";
@@ -25,7 +26,51 @@ import {
 	syncReviewDiffSession,
 } from "./session.js";
 import { checkHunkAvailable, launchHunkReview, type HunkComment } from "./hunk-bridge.js";
-import { ReviewDiffPane, type ReviewDiffPaneAction } from "./tui.js";
+import type { ReviewDiffPaneAction } from "./tui.js";
+
+const require = createRequire(import.meta.url);
+
+function loadTextComponent(): any | null {
+	try {
+		const tui = require("@earendil-works/pi-tui");
+		return tui.Text ?? null;
+	} catch {
+		return null;
+	}
+}
+
+async function copyTextToClipboard(text: string): Promise<void> {
+	try {
+		const hostModule = await import("@earendil-works/pi-coding-agent");
+		const hostClipboard = hostModule.copyToClipboard;
+		if (typeof hostClipboard === "function") {
+			await hostClipboard(text);
+			return;
+		}
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error);
+		// If the host package cannot be resolved from an isolated extension install,
+		// use OS clipboard commands. If the host clipboard helper itself failed,
+		// preserve the old fallback behavior and let the caller load editor text.
+		if (!message.includes("Cannot find module")) throw error;
+	}
+
+	if (process.platform === "darwin") {
+		execFileSync("pbcopy", { input: text });
+		return;
+	}
+	if (process.platform === "win32") {
+		execFileSync("clip", { input: text });
+		return;
+	}
+	try {
+		execFileSync("wl-copy", { input: text });
+		return;
+	} catch {
+		// Fall through to xclip.
+	}
+	execFileSync("xclip", ["-selection", "clipboard"], { input: text });
+}
 
 const REVIEW_DIFF_POLL_MS = 1000;
 
@@ -84,10 +129,14 @@ export function registerReviewDiffCommand(pi: ExtensionAPI, cwd: string): void {
 	pi.on?.("session_tree", async (_event: SessionTreeEvent, ctx: ExtensionContext) => reconstruct(ctx));
 
 	pi.registerMessageRenderer?.("review-diff-submit", (message: { content: string | Array<{ type: string; text?: string }>; details?: ReviewDiffMessageDetails }, _options: MessageRenderOptions, theme: Theme) => {
+		const Text = loadTextComponent();
+		if (!Text) return undefined;
 		const text = typeof message.content === "string" ? message.content : message.content.map((c) => c.text ?? "").join("");
 		return new Text(theme.fg("success", theme.bold("review-diff ")) + text, 0, 0);
 	});
 	pi.registerMessageRenderer?.("review-diff-status", (message: { content: string | Array<{ type: string; text?: string }>; details?: ReviewDiffMessageDetails }, _options: MessageRenderOptions, theme: Theme) => {
+		const Text = loadTextComponent();
+		if (!Text) return undefined;
 		const text = typeof message.content === "string" ? message.content : message.content.map((c) => c.text ?? "").join("");
 		const level =
 			message.details?.level === "error" ? "error" : message.details?.level === "warning" ? "warning" : "muted";
@@ -317,7 +366,7 @@ async function handleTuiReview(
 				continue;
 			}
 			try {
-				await copyToClipboard(location);
+				await copyTextToClipboard(location);
 				ctx.ui.notify("Selected review location copied to clipboard", "info");
 			} catch {
 				ctx.ui.setEditorText(location);
@@ -366,6 +415,7 @@ async function openReviewDiffPane(
 	diff: ReviewDiff,
 	session: ReviewDiffSession,
 ): Promise<{ action: ReviewDiffPaneAction; diff: ReviewDiff; session: ReviewDiffSession }> {
+	const { ReviewDiffPane } = await import("./tui.js");
 	let liveDiff = diff;
 	let liveSession = session;
 	const action = await ctx.ui.custom(

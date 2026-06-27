@@ -122,3 +122,8 @@ See the git history: `git log --oneline -- CHANGELOG.md`.
 [0.6.4]: https://github.com/buddingnewinsights/pi-diff/releases/tag/v0.6.4
 [Keep a Changelog]: https://keepachangelog.com/
 [Semantic Versioning]: https://semver.org/
+
+> **Note:** v0.6.5 had a broken `files` array in `package.json` that
+> omitted `dist/edit-guard.*`, causing the published npm tarball
+> to fail with `Cannot find module './edit-guard.js'`. v0.6.6
+> re-publishes with the file array fixed.

@@ -1,5 +1,37 @@
 # Release notes
 
+## v0.6.6 — Hotfix for broken v0.6.5 npm package
+
+### Fixed
+
+- **`package.json` `files` array was missing `dist/edit-guard.*`**
+  in v0.6.5, so the published npm tarball loaded with:
+
+  ```
+  Failed to load extension ".../dist/index.js"
+    Cannot find module './edit-guard.js'
+  ```
+
+  This release adds the four missing entries (`edit-guard.d.ts`,
+  `edit-guard.d.ts.map`, `edit-guard.js`, `edit-guard.js.map`)
+  and re-publishes the package.
+
+### What you need to do
+
+```bash
+pi install @heyhuynhgiabuu/pi-diff@0.6.6
+```
+
+### Verified
+
+- `npm run build` succeeds
+- `npm test` 98/98 pass
+- `npm pack --dry-run` lists `dist/edit-guard.js` in the file list
+
+---
+
+## v0.6.5 — Rollback to v0.6.4 baseline + edit guard
+
 This file is the human-readable release log for `@heyhuynhgiabuu/pi-diff`.
 The machine-readable equivalent lives in `CHANGELOG.md`; this file is
 what the GitHub release page and `pi install` changelog picker will show.

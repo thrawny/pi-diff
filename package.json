@@ -1,6 +1,6 @@
 {
   "name": "@heyhuynhgiabuu/pi-diff",
-  "version": "0.6.5",
+  "version": "0.6.6",
   "description": "Shiki-powered terminal diff renderer for pi — syntax-highlighted, word-level diffs in split and unified views.",
   "keywords": [
     "diff",
@@ -26,6 +26,10 @@
     "dist/index.d.ts.map",
     "dist/index.js",
     "dist/index.js.map",
+    "dist/edit-guard.d.ts",
+    "dist/edit-guard.d.ts.map",
+    "dist/edit-guard.js",
+    "dist/edit-guard.js.map",
     "dist/core/config.d.ts",
     "dist/core/config.d.ts.map",
     "dist/core/config.js",
@@ -70,7 +74,7 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.79.0",
     "@earendil-works/pi-tui": "^0.79.0",
-    "@heyhuynhgiabuu/pi-diff": "0.6.5",
+    "@heyhuynhgiabuu/pi-diff": "0.6.6",
     "@shikijs/cli": "^4.0.2",
     "diff": "^7.0.0"
   },

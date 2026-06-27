@@ -1819,7 +1819,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
                 content: [{ type: "text" as const, text: `Edited ${sp(fp)}` }],
                 details: {
                   _type: "editInfo",
-                  summary,
+                  summary: editLine > 0 ? `${summary} at line ${editLine}` : summary,
                   filePath: fp,
                   editLine,
                   diff: diffData,
@@ -1974,11 +1974,10 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
       const d = result.details;
           if (d?._type === "editInfo" && d.diff) {
-            const loc = d.editLine > 0 ? ` ${theme.fg("muted", `at line ${d.editLine}`)}` : "";
             setDiffPreviewTask(
               text,
               "ed",
-              loc,
+              "",
               d.diff,
               d.language,
               MAX_PREVIEW_LINES,
@@ -1988,9 +1987,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
             return text;
           }
           if (d?._type === "editInfo") {
-            const { editLine } = d;
-            const loc = editLine > 0 ? ` ${theme.fg("muted", `at line ${editLine}`)}` : "";
-            setToolHeaderText(text, loc, theme);
+            setToolHeaderText(text, "", theme);
             return text;
           }
           if (d?._type === "multiEditInfo") {

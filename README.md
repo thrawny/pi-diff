@@ -26,6 +26,7 @@ A [pi](https://pi.dev) extension that replaces the default `write` and `edit` to
 - **LRU cache** — singleton Shiki highlighter with 192-entry cache for fast re-renders
 - **Large diff fallback** — gracefully degrades (skips highlighting, still shows diff structure) for files > 80k chars
 - **Fully customizable** — every color and threshold is overridable via environment variables
+- **Edit guard** — blocks `edit` tool calls whose `oldText` is no longer in the target file, forcing the model to re-read before retrying (prevents stale-`oldText` retry loops)
 
 ## Install
 
@@ -49,6 +50,8 @@ pi-diff wraps the built-in `write` and `edit` tools from the pi SDK, including s
 2. **Delegates** to the original SDK tool (file is actually written)
 3. **After the write** — computes a structured diff between old and new content
 4. **Renders** the diff with syntax highlighting and word-level emphasis
+
+For `edit` calls, a `tool_call` handler runs **before** the tool executes and verifies that every `oldText` in the request is still present in the target file. If any `oldText` is missing, the call is blocked with a clear `VERIFY before EDIT` error, preventing the model from re-trying with stale text from a prior read.
 
 The rendering pipeline:
 
@@ -195,21 +198,35 @@ export DIFF_SPLIT_MIN_WIDTH=120
 
 ```
 src/
-└── index.ts    # Extension entry point — wraps write/edit tools with diff rendering
+├── index.ts            # Extension entry point — wraps write/edit tools with diff rendering
+├── edit-guard.ts       # tool_call handler that blocks stale oldText in edit calls
+├── edit-guard.test.ts  # Unit tests for the edit guard
+├── core/               # Pure data layer: diff parsing, conflict detection, line resolution
+│   ├── config.ts
+│   ├── conflicts.ts
+│   ├── diff.ts         # parseDiff, parsePatchFiles, resolveSepStyle
+│   ├── replace.ts      # safe in-place text replacement
+│   ├── resolve-lines.ts
+│   └── *.test.ts
+└── review/             # Shared diff-rendering primitives used by the main extension
+    ├── git.ts          # read git diffs from disk (execFileSync)
+    └── hunk-preview.ts # renderSplit, renderUnified, theme helpers (re-exported via __testing)
 ```
 
 ### Key internals
 
-| Component            | Purpose                                                                          |
-| -------------------- | -------------------------------------------------------------------------------- |
-| `parseDiff()`        | Converts old/new content to structured `DiffLine[]` using `diff.structuredPatch` |
-| `hlBlock()`          | Shiki ANSI highlighting with LRU cache (192 entries)                             |
-| `injectBg()`         | Composites diff backgrounds into Shiki ANSI output (fg + bg layering)            |
-| `wordDiffAnalysis()` | Single-pass word diff → similarity score + character ranges                      |
-| `renderSplit()`      | Side-by-side renderer with diagonal stripe fillers                               |
-| `renderUnified()`    | Stacked single-column renderer                                                   |
-| `wrapAnsi()`         | ANSI-aware line wrapping with state carry-forward                                |
-| `shouldUseSplit()`   | Heuristic: split vs unified based on terminal width and wrap ratio               |
+All listed symbols are exposed under the `__testing` export for unit tests:
+
+| Symbol                     | Source                  | Purpose                                                                 |
+| -------------------------- | ----------------------- | ----------------------------------------------------------------------- |
+| `parseDiff()`              | `core/diff.ts`          | Convert old/new content to structured `DiffLine[]` (added/removed/chars) |
+| `parsePatchFiles()`        | `core/diff.ts`          | Parse a full `git apply` patch into per-file diff objects               |
+| `resolveSepStyle()`        | `core/diff.ts`          | Pick the per-side separator style (` │ ` vs `╱`) for split view         |
+| `getSepStyle()`            | `review/hunk-preview.ts`| Same as above for the shared rendering layer                            |
+| `computeHunkBlocks()`      | `review/hunk-preview.ts`| Build add/remove/modify line blocks with column ranges for split view   |
+| `renderSplit()`            | `review/hunk-preview.ts`| Side-by-side renderer with diagonal stripe fillers                      |
+| `renderUnified()`          | `review/hunk-preview.ts`| Stacked single-column renderer                                          |
+| `normalizeShikiContrast()` | `review/hunk-preview.ts` | Lighten/darken Shiki output to match the surrounding TUI theme        |
 
 ### Rendering constants
 
@@ -258,12 +275,13 @@ pi install .
 pi-diff is a **pi extension** — a TypeScript file that exports a default function receiving the pi API:
 
 ```typescript
-export default function piDiffExtension(pi: any): void {
-  // Get SDK tools
+import { registerEditGuard } from "./edit-guard.js";
+
+export default function piDiffExtension(pi: ExtensionAPI): void {
+  // Wrap the built-in write/edit tools with diff rendering
   const origWrite = createWriteTool(cwd);
   const origEdit = createEditTool(cwd);
 
-  // Register enhanced versions
   pi.registerTool({
     ...origWrite,
     name: "write",
@@ -271,15 +289,18 @@ export default function piDiffExtension(pi: any): void {
     renderCall: (...) => { /* preview */ },
     renderResult: (...) => { /* render diff */ },
   });
+
+  // Block stale-oldText edit calls before they run
+  registerEditGuard(pi);
 }
 ```
 
 Extensions can:
 
 - **Register tools** — `pi.registerTool(definition)`
-- **Listen to events** — `pi.on("session_start" | "input" | "before_tool_call" | ...)`
+- **Listen to events** — `pi.on("session_start" | "input" | "tool_call" | "session_shutdown" | ...)`
+  - `tool_call` handlers can `block: true` to prevent the call from running
 - **Register commands** — `pi.registerCommand("/name", handler)`
-- **Register providers** — `pi.registerProvider("name", config)`
 
 See the [pi docs](https://pi.dev) for the full extension API.
 

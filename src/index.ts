@@ -23,7 +23,12 @@
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, relative } from "node:path";
-import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
+import type {
+	EditToolCallEvent,
+	ExtensionAPI,
+	ExtensionHandler,
+	ToolCallEventResult,
+} from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
 import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
@@ -40,6 +45,7 @@ import {
   sepLabelUnified,
 } from "./core/diff.js";
     import { replace } from "./core/replace.js";
+import { registerEditGuard } from "./edit-guard.js";
 
 import {
   applyDiffPalette as applySharedDiffPalette,
@@ -2004,4 +2010,6 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       return text;
     },
   });
+
+  registerEditGuard(pi);
 }

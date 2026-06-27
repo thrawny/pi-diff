@@ -1,6 +1,6 @@
 {
   "name": "@heyhuynhgiabuu/pi-diff",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "Shiki-powered terminal diff renderer for pi — syntax-highlighted, word-level diffs in split and unified views.",
   "keywords": [
     "diff",
@@ -70,7 +70,7 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "^0.79.0",
     "@earendil-works/pi-tui": "^0.79.0",
-    "@heyhuynhgiabuu/pi-diff": "0.6.4",
+    "@heyhuynhgiabuu/pi-diff": "0.6.5",
     "@shikijs/cli": "^4.0.2",
     "diff": "^7.0.0"
   },

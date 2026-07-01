@@ -788,6 +788,11 @@ function shortPath(cwd: string, home: string, p: string): string {
   return p.replace(home, "~");
 }
 
+function summarizeThemed(a: number, d: number, theme: PiTheme): string {
+  resolveDiffColors(theme);
+  return summarize(a, d);
+}
+
 function summarize(a: number, d: number): string {
   const p: string[] = [];
   if (a > 0) p.push(`${FG_ADD}+${a}${RST}`);
@@ -1434,6 +1439,13 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     editHeaderStatsByCallId.set(toolCallId, { edits, diffLines, added, removed });
   }
 
+  const writeHeaderStatsByCallId = new Map<string, { added: number; removed: number }>();
+
+  function stashWriteHeaderStats(toolCallId: string, added: number, removed: number): void {
+    if (!toolCallId) return;
+    writeHeaderStatsByCallId.set(toolCallId, { added, removed });
+  }
+
   const cwd = process.cwd();
   const home = process.env.HOME ?? "";
   const sp = (p: string) => shortPath(cwd, home, p);
@@ -1499,7 +1511,13 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     const raw = toolCallId ? editHeaderStatsByCallId.get(toolCallId) : undefined;
     if (!raw) return "";
     const count = editEditsCountLabel(raw.edits, raw.diffLines, theme);
-    return `${TOOL_RESULT_INDENT}${theme.fg("muted", count)} ${summarize(raw.added, raw.removed)}`;
+    return `${TOOL_RESULT_INDENT}${theme.fg("muted", count)} ${summarizeThemed(raw.added, raw.removed, theme)}`;
+  }
+
+  function writeCallStatsSuffix(toolCallId: string | undefined, theme: any): string {
+    const raw = toolCallId ? writeHeaderStatsByCallId.get(toolCallId) : undefined;
+    if (!raw) return "";
+    return `${TOOL_RESULT_INDENT}${summarizeThemed(raw.added, raw.removed, theme)}`;
   }
 
   function padDiffBody(rendered: string): string {
@@ -1638,6 +1656,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
         const useFull = !!(params as any)._expandGaps;
         const diff = parseDiff(old, content, useFull ? undefined : 3);
         const lg = detectDiffLanguage(fp);
+        stashWriteHeaderStats(tid, diff.added, diff.removed);
         (result as Record<string, unknown>).details = {
           _type: "diff",
           summary: summarize(diff.added, diff.removed),
@@ -1666,41 +1685,37 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       const isNew = !fp || !existsSync(fp);
       const label = isNew ? "create" : "write";
       const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
-      const hdr = `${theme.fg("toolTitle", theme.bold(label))} ${theme.fg("accent", sp(fp))}`;
+      resolveDiffColors(theme);
+      const w = termW();
+      const stats = writeCallStatsSuffix(ctx.toolCallId, theme);
 
-      // Streaming
       if (args?.content && !ctx.argsComplete) {
         const n = String(args.content).split("\n").length;
-        text.setText(`${hdr} ${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}`);
+        const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
+        text.setText(formatToolCallHeader(label, fp, theme, w, suffix));
         return text;
       }
 
-      // New file preview with Shiki
       if (args?.content && ctx.argsComplete && isNew) {
+        const title = formatToolCallHeader(label, fp, theme, w);
         const previewKey = `create:${sharedThemeCacheKey(theme)}:${fp}:${String(args.content).length}`;
         if (ctx.state._previewKey !== previewKey) {
           ctx.state._previewKey = previewKey;
-          ctx.state._previewText = hdr;
+          ctx.state._previewText = title;
           const lg = detectDiffLanguage(fp);
           hlBlock(args.content, lg)
             .then((lines: string[]) => {
               if (ctx.state._previewKey !== previewKey) return;
-              const maxShow = ctx.expanded ? lines.length : 16;
-              const preview = lines.slice(0, maxShow).join("\n");
-              const rem = lines.length - maxShow;
-              let out = `${hdr}\n\n${preview}`;
-              if (rem > 0)
-                out += `\n${theme.fg("muted", `… (${rem} more lines, ${lines.length} total)`)}`;
-              ctx.state._previewText = out;
+              ctx.state._previewText = `${title}\n${padDiffBody(lines.join("\n"))}`;
               ctx.invalidate();
             })
             .catch(() => {});
         }
-        text.setText(ctx.state._previewText ?? hdr);
+        text.setText(ctx.state._previewText ?? title);
         return text;
       }
 
-      text.setText(hdr);
+      text.setText(formatToolCallHeader(label, fp, theme, w, stats));
       return text;
     },
 
@@ -2034,7 +2049,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
             fp,
             theme,
             termW(),
-            `${TOOL_RESULT_INDENT}${theme.fg("muted", summarize(totalAdded, totalRemoved))}${loc}`,
+            `${TOOL_RESULT_INDENT}${theme.fg("muted", editEditsCountLabel(operations.length, totalAdded + totalRemoved, theme))} ${summarizeThemed(totalAdded, totalRemoved, theme)}${loc}`,
           ),
         );
       } else {

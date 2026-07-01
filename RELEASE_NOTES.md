@@ -4,6 +4,7 @@
 
 - **Default expand** — `session_start` → `setToolsExpanded(true)` overrides pi-pretty’s global collapse for write/edit results.
 - **Overwrite write** — full diff preview by default (`_type: diff` no longer collapses to a one-line summary).
+- **Themed stats** — write/edit call lines show **green +X** / **red -Y** via `summarizeThemed` and write header stash.
 
 ## Install
 

@@ -4,6 +4,19 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.7] — 2026-07-01
+
+### Changed
+
+- **Pi 0.80**: `@earendil-works/pi-coding-agent` and `pi-tui` at `^0.80.0`; removed self-dependency on `@heyhuynhgiabuu/pi-diff`.
+- **Tool output layout**: single-space `TOOL_RESULT_INDENT` and header padding aligned with pi-pretty.
+
+### Added
+
+- **Collapse/expand** on `write` (overwrite diff), `edit`, and `new file` results when the block is collapsed (`ctrl+o to expand`).
+- **Write overwrite collapsed**: summary `+N -M` (or `no changes`) instead of always rendering the full unified diff.
+- **Default expanded tool blocks** on session start (`toolOutputExpanded: true`) so edit/write diffs show on first paint; per-block collapse still applies in `renderResult` for new files and when you toggle Ctrl+O.
+
 ## [0.6.5] — 2026
 
 ### Removed

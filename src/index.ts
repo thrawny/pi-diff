@@ -46,6 +46,8 @@ import {
 } from "./core/diff.js";
     import { replace } from "./core/replace.js";
 import { registerEditGuard } from "./edit-guard.js";
+import { collapsedSummaryLine } from "./collapsed-hint.js";
+import { registerDefaultExpandedToolOutput } from "./expand.js";
 
 import {
   applyDiffPalette as applySharedDiffPalette,
@@ -1415,7 +1417,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
   const cwd = process.cwd();
   const home = process.env.HOME ?? "";
   const sp = (p: string) => shortPath(cwd, home, p);
-  const TOOL_HEADER_LEFT_PAD = 2;
+  const TOOL_RESULT_INDENT = " ";
+  const TOOL_HEADER_LEFT_PAD = 1;
   const TOOL_HEADER_TOP_PAD = 1;
   const TOOL_PREVIEW_BOTTOM_PAD = 1;
   const DIFF_BODY_LEFT_PAD = 1;
@@ -1626,7 +1629,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       // Streaming
       if (args?.content && !ctx.argsComplete) {
         const n = String(args.content).split("\n").length;
-        text.setText(`${hdr}  ${theme.fg("muted", `(${n} lines…)`)}`);
+        text.setText(`${hdr} ${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}`);
         return text;
       }
 
@@ -1673,20 +1676,35 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
       const d = result.details;
       if (d?._type === "diff") {
+        if (!ctx.expanded) {
+          const added = typeof d.diff?.added === "number" ? d.diff.added : 0;
+          const removed = typeof d.diff?.removed === "number" ? d.diff.removed : 0;
+          const label =
+            added > 0 || removed > 0 ? `+${added} -${removed}` : "no changes";
+          setToolHeaderText(text, collapsedSummaryLine(label), theme);
+          text.__piDiffTask = undefined;
+          return text;
+        }
         setDiffPreviewTask(text, "wd", d.summary, d.diff, d.language, MAX_RENDER_LINES, theme, ctx);
         return text;
       }
       if (d?._type === "noChange") {
         text.__piDiffTask = undefined;
-        text.setText(`  ${theme.fg("muted", "✓ no changes")}`);
+        text.setText(`${TOOL_RESULT_INDENT}${theme.fg("muted", "✓ no changes")}`);
         return text;
       }
       if (d?._type === "new") {
         const { lines: lineCount, content: rawContent, filePath: fp } = d;
+        if (!ctx.expanded) {
+          text.setText(
+            `${TOOL_RESULT_INDENT}${theme.fg("success", `✓ new file (${lineCount} lines)`)}\n${TOOL_RESULT_INDENT}${theme.fg("muted", collapsedSummaryLine(`${lineCount} lines`))}`,
+          );
+          return text;
+        }
         const pk = `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}`;
         if (ctx.state._nfk !== pk) {
           ctx.state._nfk = pk;
-          ctx.state._nft = `  ${theme.fg("success", `✓ new file (${lineCount} lines)`)}`;
+          ctx.state._nft = `${TOOL_RESULT_INDENT}${theme.fg("success", `✓ new file (${lineCount} lines)`)}`;
           const lg = detectDiffLanguage(fp);
           if (rawContent) {
             hlBlock(rawContent, lg)
@@ -1695,8 +1713,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
                 const maxShow = ctx.expanded ? hlLines.length : 12;
                 const preview = hlLines.slice(0, maxShow).join("\n");
                 const rem = hlLines.length - maxShow;
-                let out = `  ${theme.fg("success", `✓ new file (${lineCount} lines)`)}\n${preview}`;
-                if (rem > 0) out += `\n${theme.fg("muted", `  … ${rem} more lines`)}`;
+                let out = `${TOOL_RESULT_INDENT}${theme.fg("success", `✓ new file (${lineCount} lines)`)}\n${preview}`;
+                if (rem > 0) out += `\n${theme.fg("muted", `${TOOL_RESULT_INDENT}… ${rem} more lines`)}`;
                 ctx.state._nft = out;
                 ctx.invalidate();
               })
@@ -1704,12 +1722,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
           }
         }
         text.setText(
-          ctx.state._nft ?? `  ${theme.fg("success", `✓ new file (${lineCount} lines)`)}`,
+          ctx.state._nft ?? `${TOOL_RESULT_INDENT}${theme.fg("success", `✓ new file (${lineCount} lines)`)}`,
         );
         return text;
       }
       text.setText(
-        `  ${theme.fg("dim", String(result?.content?.[0]?.text ?? "written").slice(0, 120))}`,
+        `${TOOL_RESULT_INDENT}${theme.fg("dim", String(result?.content?.[0]?.text ?? "written").slice(0, 120))}`,
       );
       return text;
     },
@@ -1984,7 +2002,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
             fp,
             theme,
             termW(),
-            `  ${theme.fg("muted", summarize(totalAdded, totalRemoved))}${loc}`,
+            `${TOOL_RESULT_INDENT}${theme.fg("muted", summarize(totalAdded, totalRemoved))}${loc}`,
           ),
         );
       } else {
@@ -2007,6 +2025,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
       const d = result.details;
           if (d?._type === "editInfo" && d.diff) {
+            if (!ctx.expanded) {
+              const lc =
+                typeof d.diffLineCount === "number"
+                  ? d.diffLineCount
+                  : String(d.diff).split("\n").length;
+              setToolHeaderText(text, collapsedSummaryLine(`${lc} diff lines`), theme);
+              text.__piDiffTask = undefined;
+              return text;
+            }
             setDiffPreviewTask(
               text,
               "ed",
@@ -2026,6 +2053,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
           if (d?._type === "multiEditInfo") {
             const { editCount, diffLineCount, diff, language } = d;
             const meta = `${editCount} edits${diffLineCountLabel(diffLineCount, theme)}`;
+            if (diff && !ctx.expanded) {
+              setToolHeaderText(
+                text,
+                collapsedSummaryLine(`${editCount} edits, ${diffLineCount ?? 0} diff lines`),
+                theme,
+              );
+              text.__piDiffTask = undefined;
+              return text;
+            }
             if (diff) {
               setDiffPreviewTask(text, "me", meta, diff, language, MAX_PREVIEW_LINES, theme, ctx);
               return text;
@@ -2035,11 +2071,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
           }
       text.__piDiffTask = undefined;
       text.setText(
-        `  ${theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120))}`,
+        `${TOOL_RESULT_INDENT}${theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120))}`,
       );
       return text;
     },
   });
 
+  registerDefaultExpandedToolOutput(pi);
   registerEditGuard(pi);
 }

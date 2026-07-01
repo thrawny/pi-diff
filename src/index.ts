@@ -47,7 +47,6 @@ import {
     import { replace } from "./core/replace.js";
 import { registerEditGuard } from "./edit-guard.js";
 import { collapsedSummaryLine } from "./collapsed-hint.js";
-import { registerDefaultExpandedToolOutput } from "./expand.js";
 
 import {
   applyDiffPalette as applySharedDiffPalette,
@@ -1421,7 +1420,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
   const TOOL_HEADER_LEFT_PAD = 1;
   const TOOL_HEADER_TOP_PAD = 1;
   const TOOL_PREVIEW_BOTTOM_PAD = 1;
-  const DIFF_BODY_LEFT_PAD = 1;
+  const DIFF_BODY_LEFT_PAD = 0;
 
   function resolvePreviewDiffColors(theme: any): DiffColors {
     resolveDiffColors(theme);
@@ -2025,15 +2024,6 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
       const d = result.details;
           if (d?._type === "editInfo" && d.diff) {
-            if (!ctx.expanded) {
-              const lc =
-                typeof d.diffLineCount === "number"
-                  ? d.diffLineCount
-                  : String(d.diff).split("\n").length;
-              setToolHeaderText(text, collapsedSummaryLine(`${lc} diff lines`), theme);
-              text.__piDiffTask = undefined;
-              return text;
-            }
             setDiffPreviewTask(
               text,
               "ed",
@@ -2053,15 +2043,6 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
           if (d?._type === "multiEditInfo") {
             const { editCount, diffLineCount, diff, language } = d;
             const meta = `${editCount} edits${diffLineCountLabel(diffLineCount, theme)}`;
-            if (diff && !ctx.expanded) {
-              setToolHeaderText(
-                text,
-                collapsedSummaryLine(`${editCount} edits, ${diffLineCount ?? 0} diff lines`),
-                theme,
-              );
-              text.__piDiffTask = undefined;
-              return text;
-            }
             if (diff) {
               setDiffPreviewTask(text, "me", meta, diff, language, MAX_PREVIEW_LINES, theme, ctx);
               return text;
@@ -2076,7 +2057,5 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       return text;
     },
   });
-
-  registerDefaultExpandedToolOutput(pi);
   registerEditGuard(pi);
 }

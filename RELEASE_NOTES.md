@@ -1,15 +1,14 @@
-# @heyhuynhgiabuu/pi-diff v0.6.9
+# @heyhuynhgiabuu/pi-diff v0.6.10
 
 ## Highlights
 
-- **Write/edit headers** — title row + bottom padding (`formatToolCallHeader`); write/create call lines match edit spacing.
-- **Edit** — multi-edit count and diff stats on one call line; result body is diff-only (no second `N edits (…)` row).
-- **New file write** — full highlighted preview on tool background; always expanded for `_type: new`.
+- **Default expand** — `session_start` → `setToolsExpanded(true)` overrides pi-pretty’s global collapse for write/edit results.
+- **Overwrite write** — full diff preview by default (`_type: diff` no longer collapses to a one-line summary).
 
 ## Install
 
 ```bash
-pi install npm:@heyhuynhgiabuu/pi-diff@0.6.9
+pi install npm:@heyhuynhgiabuu/pi-diff@0.6.10
 ```
 
 Requires Pi **0.80.x** (`@earendil-works/pi-coding-agent` ^0.80.0).

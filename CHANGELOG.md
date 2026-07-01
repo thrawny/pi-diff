@@ -4,6 +4,13 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.10] — 2026-07-02
+
+### Changed
+
+- **Default expanded tool output** — `session_start` calls `setToolsExpanded(true)` so write/edit diffs are not left collapsed when pi-pretty sets `toolOutputExpanded: false`.
+- **Write overwrite** — `_type: "diff"` always renders full diff preview (removed collapsed summary-only branch).
+
 ## [0.6.9] — 2026-07-02
 
 ### Changed

@@ -1387,6 +1387,11 @@ export const __testing = {
 };
 
 export default async function diffRendererExtension(pi: ExtensionAPI): Promise<void> {
+  // pi-pretty sets toolOutputExpanded:false on session_start; write/edit default expanded.
+  pi.on("session_start", async (_event, ctx) => {
+    ctx.ui.setToolsExpanded(true);
+  });
+
   // Apply diff theme palette from settings/presets before rendering
   applySharedDiffPalette();
   // Resolve hunk separator style from env var
@@ -1712,19 +1717,10 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
         return text;
       }
       const d = result.details;
-      if (d?._type === "diff") {
-        if (!ctx.expanded) {
-          const added = typeof d.diff?.added === "number" ? d.diff.added : 0;
-          const removed = typeof d.diff?.removed === "number" ? d.diff.removed : 0;
-          const label =
-            added > 0 || removed > 0 ? `+${added} -${removed}` : "no changes";
-          setToolHeaderText(text, collapsedSummaryLine(label), theme);
-          text.__piDiffTask = undefined;
-          return text;
-        }
-        setDiffPreviewTask(text, "wd", d.summary, d.diff, d.language, MAX_RENDER_LINES, theme, ctx);
-        return text;
-      }
+          if (d?._type === "diff") {
+            setDiffPreviewTask(text, "wd", "", d.diff, d.language, MAX_RENDER_LINES, theme, ctx);
+            return text;
+          }
       if (d?._type === "noChange") {
         text.__piDiffTask = undefined;
         text.setText(`${TOOL_RESULT_INDENT}${theme.fg("muted", "✓ no changes")}`);

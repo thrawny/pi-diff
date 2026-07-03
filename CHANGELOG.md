@@ -4,6 +4,29 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-07-03
+
+### Added
+
+- **`hashline_read` / `hashline_edit` tools** — content-anchored edits (xxhash-wasm), strict `E_STALE_ANCHOR` / overlap / range errors with `hashline_read` reread hints.
+- **Read format** — `LINE│HASH│content` (1-based line numbers, padded).
+- **`dryRun`** on `hashline_edit` and on **`edit`** when using `hashlineChanges`.
+- **BOM + CRLF/LF preservation** on hashline writes (`src/core/text-encoding.ts`).
+- **Shared `runHashlineEdit`** — single read via `rawUtf8`, `finalRaw` for diffs.
+- **`edit` `hashlineChanges`** path delegates to shared executor; legacy `oldText`/`newText` unchanged.
+- **`hashline_edit` call stats** — `N diff lines` + themed `+x -y`.
+- **`scripts/analyze-hashline-edits.py`** — session JSONL stats for hashline tools.
+- **ADR-001** — hashline vs upstream Pi `edit` (`.pi/artifacts/DECISIONS.md`).
+
+### Changed
+
+- **Hashline TUI** — `renderCall` titles; no duplicate path in collapsed `hashline_read` result; no leading `\n` on hashline read/edit result text; `callTitleBottomPad: 0` for single gap under call title.
+- **Header helpers** — `formatToolFrameHeader` consolidation for write/edit/hashline.
+
+### Documentation
+
+- README **Design notes** + CHANGELOG pointer to ADR-001.
+
 ## [0.6.10] — 2026-07-02
 
 ### Changed
@@ -11,6 +34,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/).
 - **Default expanded tool output** — `session_start` calls `setToolsExpanded(true)` so write/edit diffs are not left collapsed when pi-pretty sets `toolOutputExpanded: false`.
 - **Write overwrite** — `_type: "diff"` always renders full diff preview (removed collapsed summary-only branch).
 - **Themed +X -Y on call lines** — `summarizeThemed` + `writeCallStatsSuffix` / stash on write execute; edit stats use theme `toolDiffAdded` / `toolDiffRemoved` on headers.
+
+### Documentation
+
+- **ADR-001** — [`.pi/artifacts/DECISIONS.md`](.pi/artifacts/DECISIONS.md): pi-diff hashline path vs upstream Pi `edit` philosophy (opt-in anchors, explicit errors, not a core replacement). README links to the same doc.
 
 ## [0.6.9] — 2026-07-02
 

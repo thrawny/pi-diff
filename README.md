@@ -304,6 +304,10 @@ Extensions can:
 
 See the [pi docs](https://pi.dev) for the full extension API.
 
+## Design notes
+
+How **hashline** (`hashline_read`, `hashline_edit`, `edit` `hashlineChanges`) relates to Pi’s stock **`edit`** tool (exact `edits[]`, bounded fuzzy match, loud failures) is documented in [`.pi/artifacts/DECISIONS.md`](.pi/artifacts/DECISIONS.md) (ADR-001). Summary: stock `edit` stays the portable default; hashline is an opt-in strict anchor path for agents that adopt it.
+
 ## License
 
 MIT — [huynhgiabuu](https://github.com/buddingnewinsights)

@@ -22,7 +22,7 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { extname, relative } from "node:path";
+import { extname, relative, resolve } from "node:path";
 import type {
 	EditToolCallEvent,
 	ExtensionAPI,
@@ -46,6 +46,14 @@ import {
 } from "./core/diff.js";
     import { replace } from "./core/replace.js";
 import { registerEditGuard } from "./edit-guard.js";
+import { initHashline } from "./hashline.js";
+import {
+  executeHashlineRead,
+  HASHLINE_EDIT_DESC,
+  HASHLINE_READ_DESC,
+  runHashlineEdit,
+} from "./core/hashline-execute.js";
+import * as fs from "node:fs";
 import { collapsedSummaryLine } from "./collapsed-hint.js";
 
 import {
@@ -1101,7 +1109,7 @@ async function renderUnified(
     bodyBg = "",
   ): void {
     const borderFg = sign === "-" ? dc.fgDel : sign === "+" ? dc.fgAdd : "";
-    const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
+    const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE}`;
     const numFg = borderFg || FG_LNUM;
     const gutter = `${border}${gutterBg}${lnum(num, nw, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
     const contGutter = `${border}${gutterBg}${" ".repeat(nw + 3)}${RST}`;
@@ -1283,7 +1291,7 @@ async function renderSplit(
     if (line.type === "sep") {
       const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
       if (!label) return { gutter: "", contGutter: "", bodyRows: [""] };
-      const g = `${BG_BASE} ${FG_DIM}${fit("", nw + 3)}${RST}`;
+      const g = `${BG_BASE}${FG_DIM}${fit("", nw + 3)}${RST}`;
       return { gutter: g, contGutter: g, bodyRows: [`${BG_BASE}${FG_DIM}${fit(label, cw)}${RST}`] };
     }
 
@@ -1303,7 +1311,7 @@ async function renderSplit(
 
     // Border bar + colored line numbers for changed lines
     const borderFg = isDel ? dc.fgDel : isAdd ? dc.fgAdd : "";
-    const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : ` ${BG_BASE}`;
+    const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE}`;
     const numFg = borderFg || FG_LNUM;
 
     let body: string;
@@ -1446,15 +1454,41 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     writeHeaderStatsByCallId.set(toolCallId, { added, removed });
   }
 
+  const hashlineEditHeaderStatsByCallId = new Map<
+    string,
+    { diffLines: number; added: number; removed: number }
+  >();
+
+  function stashHashlineEditHeaderStats(
+    toolCallId: string,
+    diffLines: number,
+    added: number,
+    removed: number,
+  ): void {
+    if (!toolCallId) return;
+    hashlineEditHeaderStatsByCallId.set(toolCallId, { diffLines, added, removed });
+  }
+
+  function hashlineEditCallStatsSuffix(toolCallId: string | undefined, theme: any): string {
+    const raw = toolCallId ? hashlineEditHeaderStatsByCallId.get(toolCallId) : undefined;
+    if (!raw) return "";
+    const loc =
+      raw.diffLines > 0
+        ? `${theme.fg("muted", `${raw.diffLines} diff line${raw.diffLines === 1 ? "" : "s"}`)} `
+        : "";
+    return `${TOOL_RESULT_INDENT}${loc}${summarizeThemed(raw.added, raw.removed, theme)}`;
+  }
+
   const cwd = process.cwd();
   const home = process.env.HOME ?? "";
   const sp = (p: string) => shortPath(cwd, home, p);
   const TOOL_RESULT_INDENT = " ";
-  const TOOL_HEADER_LEFT_PAD = 1;
-  const TOOL_HEADER_TOP_PAD = 1;
-  const TOOL_PREVIEW_BOTTOM_PAD = 1;
+  const TOOL_HEADER_LEFT_PAD = 0;
   const DIFF_BODY_LEFT_PAD = 0;
-
+  /** Extra frame padding for built-in `edit` tool diff results only. */
+  const EDIT_DIFF_RESULT_FRAME = { headerLeftPad: 1, topPad: 1, bottomPad: 1, previewBottomPad: 1 } as const;
+  /** hashline_read / hashline_edit: one gap under call title (Pi shell only; no formatBottomPadding on call). */
+  const HASHLINE_TOOL_RESULT_FRAME = { previewBottomPad: 0, callTitleBottomPad: 0 } as const;
   function resolvePreviewDiffColors(theme: any): DiffColors {
     resolveDiffColors(theme);
     return resolveSharedDiffColors(theme);
@@ -1466,40 +1500,30 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     return injectBg(`${content}${padding}`, [], BG_BASE, BG_BASE);
   }
 
-  function formatToolHeader(summary: string, width: number): string {
-    const leftPad = " ".repeat(TOOL_HEADER_LEFT_PAD);
-    const meta = `${leftPad}${summary}`;
-    return bgLine(meta, width);
-  }
+  type ToolFrameHeaderOpts = {
+    width: number;
+    topPad?: number;
+    bottomPad?: number;
+    headerLeftPad?: number;
+    suffix?: string;
+    label?: string;
+    filePath?: string;
+    theme?: any;
+    meta?: string;
+  };
 
-  function formatToolTitle(
-    label: string,
-    filePath: string,
-    theme: any,
-    width: number,
-    suffix = "",
-  ): string {
-    const leftPad = " ".repeat(TOOL_HEADER_LEFT_PAD);
-    const displayPath = filePath ? ` ${theme.fg("accent", sp(filePath))}` : "";
-    const top = Array.from({ length: TOOL_HEADER_TOP_PAD }, () => bgLine("", width));
-    return [
-      ...top,
-      bgLine(`${leftPad}${theme.fg("toolTitle", theme.bold(label))}${displayPath}${suffix}`, width),
-    ].join("\n");
-  }
-
-  function formatBottomPadding(width: number): string {
-    return Array.from({ length: TOOL_PREVIEW_BOTTOM_PAD }, () => bgLine("", width)).join("\n");
-  }
-
-  function formatToolCallHeader(
-    label: string,
-    filePath: string,
-    theme: any,
-    width: number,
-    suffix = "",
-  ): string {
-    return [formatToolTitle(label, filePath, theme, width, suffix), formatBottomPadding(width)].join("\n");
+  function formatToolFrameHeader(opts: ToolFrameHeaderOpts): string {
+    const { width, topPad = 0, bottomPad = 0, headerLeftPad, suffix = "", label, filePath, theme, meta } = opts;
+    const leftPad = " ".repeat(headerLeftPad ?? TOOL_HEADER_LEFT_PAD);
+    const content =
+      label !== undefined
+        ? `${leftPad}${theme.fg("toolTitle", theme.bold(label))}${filePath ? ` ${theme.fg("accent", sp(filePath))}` : ""}${suffix}`
+        : `${leftPad}${meta ?? ""}`;
+    const parts: string[] = [];
+    for (let i = 0; i < topPad; i++) parts.push(bgLine("", width));
+    parts.push(bgLine(content, width));
+    for (let i = 0; i < bottomPad; i++) parts.push(bgLine("", width));
+    return parts.join("\n");
   }
 
   function editEditsCountLabel(edits: number, diffLines: number, theme: any): string {
@@ -1512,6 +1536,39 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     if (!raw) return "";
     const count = editEditsCountLabel(raw.edits, raw.diffLines, theme);
     return `${TOOL_RESULT_INDENT}${theme.fg("muted", count)} ${summarizeThemed(raw.added, raw.removed, theme)}`;
+  }
+
+  function formatEditDiffResultTitle(
+    d: {
+      summary?: string;
+      filePath?: string;
+      edits?: number;
+      linesAdded?: number;
+      linesRemoved?: number;
+      editCount?: number;
+      diffLineCount?: number;
+    },
+    theme: any,
+    width: number,
+    frame: { headerLeftPad?: number; topPad?: number; bottomPad?: number },
+  ): string {
+    const fp = d.filePath ?? d.summary ?? "";
+    const edits = d.edits ?? d.editCount ?? 1;
+    const diffLines =
+      typeof d.diffLineCount === "number"
+        ? d.diffLineCount
+        : (d.linesAdded ?? 0) + (d.linesRemoved ?? 0);
+    const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", editEditsCountLabel(edits, diffLines, theme))} ${summarizeThemed(d.linesAdded ?? 0, d.linesRemoved ?? 0, theme)}`;
+    return formatToolFrameHeader({
+      width,
+      label: "edit",
+      filePath: fp,
+      suffix,
+      theme,
+      topPad: frame.topPad ?? 0,
+      bottomPad: frame.bottomPad ?? 0,
+      headerLeftPad: frame.headerLeftPad,
+    });
   }
 
   function writeCallStatsSuffix(toolCallId: string | undefined, theme: any): string {
@@ -1552,30 +1609,58 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
     resolvePreviewDiffColors(theme);
     text.__piDiffTask = undefined;
     const width = termW();
-    text.setText(`${formatToolHeader(meta, width)}\n${formatBottomPadding(width)}`);
+    text.setText(formatToolFrameHeader({ meta, width, bottomPad: 0 }));
   }
 
   function setDiffPreviewTask(
     text: { __piDiffTask?: unknown },
     keyPrefix: string,
-    meta: string,
+    metaOrHeader: string | ((width: number) => string),
     diff: ParsedDiff,
     language: BundledLanguage | undefined,
     maxLines: number,
     theme: any,
     ctx: any,
+    frame?: {
+      headerLeftPad?: number;
+      topPad?: number;
+      bottomPad?: number;
+      omitHeader?: boolean;
+      previewBottomPad?: number;
+    },
   ): void {
     const themeKey = sharedThemeCacheKey(theme);
     const colors = resolvePreviewDiffColors(theme);
-    const header = (width: number) => formatToolHeader(meta, width);
+    const headerKey =
+      typeof metaOrHeader === "function" ? "fn:" + keyPrefix : metaOrHeader;
+    const header =
+      frame?.omitHeader
+        ? (_width: number) => ""
+        : typeof metaOrHeader === "function"
+          ? metaOrHeader
+          : (width: number) =>
+              formatToolFrameHeader({
+                meta: metaOrHeader,
+                width,
+                topPad: frame?.topPad ?? 0,
+                bottomPad: frame?.bottomPad ?? 0,
+                headerLeftPad: frame?.headerLeftPad,
+              });
+    const joinHeaderBody = (width: number, body: string): string => {
+      const h = header(width);
+      const bottomPad = Math.max(0, frame?.previewBottomPad ?? 0);
+      const bottom = Array.from({ length: bottomPad }, () => bgLine("", width)).join("\n");
+      const main = h ? `${h}\n${body}` : body;
+      return bottom ? `${main}\n${bottom}` : main;
+    };
     text.__piDiffTask = {
-      placeholder: `${header(termW())}\n${padDiffBody(theme.fg("muted", "rendering diff…"))}\n${formatBottomPadding(termW())}`,
-      fallback: `${header(termW())}\n${formatBottomPadding(termW())}`,
+      placeholder: joinHeaderBody(termW(), padDiffBody(theme.fg("muted", " rendering diff…"))),
+      fallback: header(termW()),
       invalidate: ctx.invalidate,
       key: (width: number) =>
-        `${keyPrefix}:${themeKey}:${width}:${meta}:${diff.lines.length}:${language ?? ""}`,
+        `${keyPrefix}:${themeKey}:${width}:${headerKey}:${diff.lines.length}:${language ?? ""}:${frame?.omitHeader ? "oh" : "h"}:${frame?.previewBottomPad ?? 0}`,
       render: async (width: number) =>
-        `${header(width)}\n${await renderPaddedDiff(diff, language, maxLines, colors, width)}\n${formatBottomPadding(width)}`,
+        joinHeaderBody(width, await renderPaddedDiff(diff, language, maxLines, colors, width)),
     };
   }
 
@@ -1692,12 +1777,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       if (args?.content && !ctx.argsComplete) {
         const n = String(args.content).split("\n").length;
         const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
-        text.setText(formatToolCallHeader(label, fp, theme, w, suffix));
+        text.setText(formatToolFrameHeader({ label, filePath: fp, theme, width: w, suffix, topPad: 0, bottomPad: 0 }));
         return text;
       }
 
       if (args?.content && ctx.argsComplete && isNew) {
-        const title = formatToolCallHeader(label, fp, theme, w);
+        const title = formatToolFrameHeader({ label, filePath: fp, theme, width: w, topPad: 0, bottomPad: 0 });
         const previewKey = `create:${sharedThemeCacheKey(theme)}:${fp}:${String(args.content).length}`;
         if (ctx.state._previewKey !== previewKey) {
           ctx.state._previewKey = previewKey;
@@ -1715,7 +1800,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
         return text;
       }
 
-      text.setText(formatToolCallHeader(label, fp, theme, w, stats));
+      text.setText(formatToolFrameHeader({ label, filePath: fp, theme, width: w, suffix: stats, topPad: 0, bottomPad: 0 }));
       return text;
     },
 
@@ -1733,7 +1818,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
       const d = result.details;
           if (d?._type === "diff") {
-            setDiffPreviewTask(text, "wd", "", d.diff, d.language, MAX_RENDER_LINES, theme, ctx);
+            setDiffPreviewTask(text, "wd", "", d.diff, d.language, MAX_RENDER_LINES, theme, ctx, { omitHeader: true, previewBottomPad: 1 });
             return text;
           }
       if (d?._type === "noChange") {
@@ -1743,6 +1828,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       }
           if (d?._type === "new") {
             const { lines: lineCount, content: rawContent, filePath: fp } = d;
+            resolvePreviewDiffColors(theme);
             const w = termW();
             const newHdr = bgLine(
               `${theme.fg("success", `✓ new file (${lineCount} lines)`)}`,
@@ -1751,25 +1837,25 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
             const pk = `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}`;
             if (ctx.state._nfk !== pk) {
               ctx.state._nfk = pk;
-              ctx.state._nft = newHdr;
               const lg = detectDiffLanguage(fp);
-              if (rawContent) {
-                hlBlock(rawContent, lg)
-                  .then((hlLines: string[]) => {
-                    if (ctx.state._nfk !== pk) return;
-                    const maxShow = hlLines.length;
-                    const preview = hlLines.slice(0, maxShow).join("\n");
-                    const rem = hlLines.length - maxShow;
-                    let out = `${newHdr}\n${padDiffBody(preview)}`;
-                    if (rem > 0)
-                      out += `\n${bgLine(`${TOOL_RESULT_INDENT}${theme.fg("muted", `… ${rem} more lines`)}`, w)}`;
-                    ctx.state._nft = out;
-                    ctx.invalidate();
-                  })
-                  .catch(() => {});
-              }
+              text.__piDiffTask = {
+                placeholder: `${newHdr}\n${padDiffBody(theme.fg("muted", "rendering file…"))}`,
+                fallback: `${newHdr}`,
+                invalidate: ctx.invalidate,
+                key: (width: number) => `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}:${width}`,
+                render: async (width: number) => {
+                  if (!rawContent) return `${newHdr}`;
+                  const hlLines = await hlBlock(rawContent, lg);
+                  const maxShow = hlLines.length;
+                  const preview = hlLines.slice(0, maxShow).join("\n").replace(/\n+$/, "");
+                  const rem = hlLines.length - maxShow;
+                  const moreLine = rem > 0
+                    ? `\n${bgLine(`${TOOL_RESULT_INDENT}${theme.fg("muted", `… ${rem} more lines`)}`, width)}`
+                    : "";
+                  return `${newHdr}\n${padDiffBody(preview)}${moreLine}`;
+                },
+              };
             }
-            text.setText(ctx.state._nft ?? newHdr);
             return text;
           }
 
@@ -1839,9 +1925,65 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
   pi.registerTool({
     ...origEdit,
     name: "edit",
+    parameters: {
+      ...((origEdit as any).parameters || {}),
+      properties: {
+        ...((((origEdit as any).parameters || {}).properties) || {}),
+        dryRun: {
+          type: "boolean",
+          description:
+            "With hashlineChanges: validate anchors and return diff without writing (same as hashline_edit dryRun).",
+        },
+        hashlineChanges: {
+          type: "array",
+          description:
+            "Hashline-anchored edits. Each entry: { hash_range_inclusive: [start, end], content_lines: string[] }. Preferred over oldString/newString — no fuzzy matching, no stale-view risk.",
+          items: {
+            type: "object",
+            properties: {
+              hash_range_inclusive: {
+                type: "array",
+                items: { type: "string" },
+                minItems: 2,
+                maxItems: 2,
+                description: "[start_anchor, end_anchor] from a prior hashline_read. Use identical anchor for a single-line edit.",
+              },
+              content_lines: {
+                type: "array",
+                items: { type: "string" },
+                description: "Replacement lines. Pass an empty array to delete the range.",
+              },
+            },
+            required: ["hash_range_inclusive", "content_lines"],
+            additionalProperties: false,
+          },
+        },
+      },
+    },
 
     async execute(tid: string, params: any, sig: any, upd: any, ctx: any) {
       const fp = params.path ?? params.file_path ?? "";
+
+      // Hashline path: strict, no fuzzy fallback, atomic write.
+      // If the model uses hashlineChanges, route exclusively here. Otherwise fall through
+      // to the legacy 6-strategy oldString/newString path below.
+      if (Array.isArray(params.hashlineChanges) && params.hashlineChanges.length > 0) {
+        if (!fp) {
+          return {
+            content: [{ type: "text", text: "[E_BAD_INPUT] path required for hashlineChanges" }],
+            isError: true,
+          };
+        }
+        const resolvedFp = resolve(cwd, fp);
+        return runHashlineEdit({
+          resolvedPath: resolvedFp,
+          changes: params.hashlineChanges,
+          dryRun: params.dryRun === true,
+          toolCallId: tid,
+          onDiffStats: (id, diff) => stashHashlineEditHeaderStats(id, diff.lines.length, diff.added, diff.removed),
+        });
+      }
+
       const operations = getEditOperations(params);
 
       // Try cascading replace() first — smarter matching than SDK's exact-only edit
@@ -2026,12 +2168,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
       resolvePreviewDiffColors(theme);
 
+      const stats = editCallStatsSuffix(ctx.toolCallId, theme);
       if (ctx.argsComplete && operations.length > 0) {
-        const { totalAdded, totalRemoved } = summarizeEditOperations(operations);
-        // Compute the line number for the call preview by reading the
-        // file and finding the first oldText. This lets the title show
-        // "at line N" even before the edit executes, matching what the
-        // result title will show.
         let previewLine = 0;
         try {
           if (fp && existsSync(fp)) {
@@ -2044,16 +2182,30 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
         }
         const loc = previewLine > 0 ? ` ${theme.fg("muted", `at line ${previewLine}`)}` : "";
         text.setText(
-          formatToolTitle(
-            "edit",
-            fp,
+          formatToolFrameHeader({
+            label: "edit",
+            filePath: fp,
             theme,
-            termW(),
-            `${TOOL_RESULT_INDENT}${theme.fg("muted", editEditsCountLabel(operations.length, totalAdded + totalRemoved, theme))} ${summarizeThemed(totalAdded, totalRemoved, theme)}${loc}`,
-          ),
+            width: termW(),
+            suffix: `${stats}${loc}`,
+            topPad: EDIT_DIFF_RESULT_FRAME.topPad,
+            bottomPad: EDIT_DIFF_RESULT_FRAME.bottomPad,
+            headerLeftPad: EDIT_DIFF_RESULT_FRAME.headerLeftPad,
+          }),
         );
       } else {
-        text.setText(formatToolTitle("edit", fp, theme, termW()));
+        text.setText(
+          formatToolFrameHeader({
+            label: "edit",
+            filePath: fp,
+            theme,
+            width: termW(),
+            suffix: stats,
+            topPad: EDIT_DIFF_RESULT_FRAME.topPad,
+            bottomPad: EDIT_DIFF_RESULT_FRAME.bottomPad,
+            headerLeftPad: EDIT_DIFF_RESULT_FRAME.headerLeftPad,
+          }),
+        );
       }
       return text;
     },
@@ -2071,37 +2223,239 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
         return text;
       }
       const d = result.details;
-          if (d?._type === "editInfo" && d.diff) {
-            setDiffPreviewTask(
-              text,
-              "ed",
-              "",
-              d.diff,
-              d.language,
-              MAX_PREVIEW_LINES,
-              theme,
-              ctx,
-            );
-            return text;
-          }
-          if (d?._type === "editInfo") {
-            setToolHeaderText(text, "", theme);
-            return text;
-          }
-          if (d?._type === "multiEditInfo") {
-            const { editCount, diffLineCount, diff, language } = d;
-            const meta = `${editCount} edits${diffLineCountLabel(diffLineCount, theme)}`;
-            if (diff) {
-              setDiffPreviewTask(text, "me", meta, diff, language, MAX_PREVIEW_LINES, theme, ctx);
-              return text;
-            }
-            setToolHeaderText(text, meta, theme);
-            return text;
-          }
+      if (d?._type === "editInfo" && d.diff) {
+        setDiffPreviewTask(
+          text,
+          "ed",
+          "",
+          d.diff,
+          d.language,
+          MAX_PREVIEW_LINES,
+          theme,
+          ctx,
+          { omitHeader: true, previewBottomPad: EDIT_DIFF_RESULT_FRAME.previewBottomPad },
+        );
+        return text;
+      }
+      if ((d?._type === "hashlineEditInfo" || d?._type === "hashlineEditDryRun") && d.diff) {
+        setDiffPreviewTask(
+          text,
+          d.path,
+          "",
+          d.diff,
+          undefined,
+          MAX_PREVIEW_LINES,
+          theme,
+          ctx,
+          { omitHeader: true, previewBottomPad: EDIT_DIFF_RESULT_FRAME.previewBottomPad },
+        );
+        return text;
+      }
+      if (d?._type === "multiEditInfo") {
+        const { editCount, diffLineCount, diff, language } = d;
+        if (diff) {
+          setDiffPreviewTask(
+            text,
+            "me",
+            "",
+            diff,
+            language,
+            MAX_PREVIEW_LINES,
+            theme,
+            ctx,
+            { omitHeader: true, previewBottomPad: EDIT_DIFF_RESULT_FRAME.previewBottomPad },
+          );
+          return text;
+        }
+        const meta = `${editCount} edits${diffLineCountLabel(diffLineCount, theme)}`;
+        setToolHeaderText(text, meta, theme);
+        return text;
+      }
       text.__piDiffTask = undefined;
       text.setText(
         `${TOOL_RESULT_INDENT}${theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120))}`,
       );
+      return text;
+    },
+  });
+
+  // Eager-init the hashline engine on session start so first edit has no WASM latency.
+  pi.on("session_start", async () => {
+    try {
+      await initHashline();
+    } catch {
+      // best-effort; lazy init still works on first edit
+    }
+  });
+
+  pi.registerTool({
+    name: "hashline_read",
+    label: "hashline_read",
+    description: HASHLINE_READ_DESC,
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute or relative file path" },
+        startLine: { type: "number", description: "Optional 1-indexed start line" },
+        endLine: { type: "number", description: "Optional 1-indexed end line (inclusive)" },
+      },
+      required: ["path"],
+      additionalProperties: false,
+    },
+    renderCall(args: any, theme: any, ctx: any) {
+      const fp = args?.path ?? "";
+      const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
+      resolvePreviewDiffColors(theme);
+      const range =
+        typeof args?.startLine === "number" || typeof args?.endLine === "number"
+          ? ` ${theme.fg("muted", `lines ${args.startLine ?? 1}-${args.endLine ?? "…"}`)}`
+          : "";
+      text.setText(
+        formatToolFrameHeader({
+          label: "hashline_read",
+          filePath: fp,
+          theme,
+          width: termW(),
+          suffix: range,
+          topPad: 0,
+          bottomPad: HASHLINE_TOOL_RESULT_FRAME.callTitleBottomPad,
+        }),
+      );
+      return text;
+    },
+    async execute(_tid: string, params: any): Promise<any> {
+      await initHashline();
+      const fp = resolve(cwd, params.path);
+      if (!fp) {
+        return { content: [{ type: "text", text: "[E_BAD_INPUT] path required" }], isError: true, details: {} };
+      }
+      let content: string;
+      try {
+        content = await fs.promises.readFile(fp, "utf8");
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        return {
+          content: [{ type: "text", text: `[E_READ_FAILED] cannot read ${fp}: ${msg}` }],
+          isError: true,
+          details: {},
+        };
+      }
+      const startLine = typeof params.startLine === "number" ? Math.max(1, params.startLine) : 1;
+      const endLine = typeof params.endLine === "number" ? Math.max(startLine, params.endLine) : Infinity;
+      return executeHashlineRead(fp, content, startLine, endLine);
+    },
+    renderResult(result: any, _opt: any, theme: any, ctx: any) {
+      const text = getWidthAwareText(ctx.lastComponent);
+      const d = result.details;
+      const lineCount = d?.lineCount ?? 0;
+      if (ctx.expanded === false) {
+        text.__piDiffTask = undefined;
+        const hint = theme.fg("dim", `(${lineCount} lines)  ctrl+o to expand`);
+        text.setText(hint);
+        return text;
+      }
+      text.__piDiffTask = undefined;
+      const out = (result.content || []).map((c: any) => c.text).join("\n");
+      text.setText(out);
+      return text;
+    },
+  });
+
+  pi.registerTool({
+    name: "hashline_edit",
+    label: "hashline_edit",
+    description: HASHLINE_EDIT_DESC,
+    parameters: {
+      type: "object",
+      properties: {
+        path: { type: "string", description: "Absolute or relative file path" },
+        dryRun: {
+          type: "boolean",
+          description: "If true, validate anchors and return diff without writing the file.",
+        },
+        hashlineChanges: {
+          type: "array",
+          description: "Atomic list of range replacements (empty content_lines deletes the range).",
+          items: {
+            type: "object",
+            properties: {
+              hash_range_inclusive: {
+                type: "array",
+                description: "[start_anchor, end_anchor] from hashline_read (LINE│HASH│content).",
+                items: { type: "string" },
+                minItems: 2,
+                maxItems: 2,
+              },
+              content_lines: {
+                type: "array",
+                description: "Replacement lines; use [] to delete the anchored range.",
+                items: { type: "string" },
+              },
+            },
+            required: ["hash_range_inclusive", "content_lines"],
+            additionalProperties: false,
+          },
+        },
+      },
+      required: ["path", "hashlineChanges"],
+      additionalProperties: false,
+    },
+    renderCall(args: any, theme: any, ctx: any) {
+      const fp = args?.path ?? "";
+      const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
+      resolvePreviewDiffColors(theme);
+      const stats = hashlineEditCallStatsSuffix(ctx.toolCallId, theme);
+      text.setText(
+        formatToolFrameHeader({
+          label: "hashline_edit",
+          filePath: fp,
+          theme,
+          width: termW(),
+          suffix: stats,
+          topPad: 0,
+          bottomPad: HASHLINE_TOOL_RESULT_FRAME.callTitleBottomPad,
+        }),
+      );
+      return text;
+    },
+    async execute(tid: string, params: any): Promise<any> {
+      await initHashline();
+      const fp = resolve(cwd, params.path);
+      if (!fp) {
+        return { content: [{ type: "text", text: "[E_BAD_INPUT] path required" }], isError: true, details: {} };
+      }
+      if (!Array.isArray(params.hashlineChanges) || params.hashlineChanges.length === 0) {
+        return { content: [{ type: "text", text: "[E_EMPTY] hashlineChanges must be a non-empty array" }], isError: true, details: {} };
+      }
+      return runHashlineEdit({
+        resolvedPath: fp,
+        changes: params.hashlineChanges,
+        dryRun: params.dryRun === true,
+        toolCallId: tid,
+        onDiffStats: (id, diff) => stashHashlineEditHeaderStats(id, diff.lines.length, diff.added, diff.removed),
+      });
+    },
+    renderResult(result: any, _opt: any, theme: any, ctx: any) {
+      const text = getWidthAwareText(ctx.lastComponent);
+      const d = result.details;
+      if ((d?._type === "hashlineEditInfo" || d?._type === "hashlineEditDryRun") && d.diff) {
+        setDiffPreviewTask(
+          text,
+          "he",
+          "",
+          d.diff,
+          undefined,
+          MAX_RENDER_LINES,
+          theme,
+          ctx,
+          { omitHeader: true, previewBottomPad: HASHLINE_TOOL_RESULT_FRAME.previewBottomPad },
+        );
+        return text;
+      }
+      // Fallback for errors / no-diff
+      text.__piDiffTask = undefined;
+      const out = (result.content || []).map((c: any) => c.text).join("\n");
+      text.setText(theme.fg(ctx.isError ? "error" : "muted", out));
       return text;
     },
   });

@@ -4,6 +4,12 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.1] — 2026-07-03
+
+### Fixed
+
+- **npm package** — include compiled hashline modules in `package.json` `files` (`dist/hashline.js`, `dist/core/hashline-edit.js`, `dist/core/hashline-execute.js`, `dist/core/text-encoding.js`). Fixes extension load error `Cannot find module './hashline.js'`.
+
 ## [0.7.0] — 2026-07-03
 
 ### Added

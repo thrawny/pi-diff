@@ -212,18 +212,26 @@ describe("applyHashlineEdits", () => {
 		if (!r.ok) expect(r.code).toBe("E_BAD_RANGE");
 	});
 
-	it("reports boundary duplication warning", () => {
+	it("rejects boundary duplication as a hard error", () => {
 		const content = "a\nb\nc";
 		const hashes = hashLines(content);
-		// Replace line 1 (b) with a copy of line 0 (a)
+		// Replacing line 1 (b) with a copy of line 0 (a) creates a boundary dup
 		const r = applyHashlineEdits(content, [
 			{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["a"] },
 		]);
-		expect(r.ok).toBe(true);
-		if (r.ok) {
-			expect(r.boundaryWarnings.length).toBeGreaterThan(0);
-			expect(r.boundaryWarnings[0]).toMatch(/W_BOUNDARY_DUP/);
-		}
+		expect(r.ok).toBe(false);
+		if (!r.ok) expect(r.code).toBe("E_BOUNDARY_DUP");
+	});
+
+	it("rejects trailing boundary duplication as a hard error", () => {
+		const content = "a\nb\nc";
+		const hashes = hashLines(content);
+		// Replacing line 1 (b) with a copy of line 2 (c) creates a boundary dup
+		const r = applyHashlineEdits(content, [
+			{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["c"] },
+		]);
+		expect(r.ok).toBe(false);
+		if (!r.ok) expect(r.code).toBe("E_BOUNDARY_DUP");
 	});
 
 	it("empty changes is a no-op", () => {

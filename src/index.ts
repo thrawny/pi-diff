@@ -1929,55 +1929,52 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       ...((origEdit as any).parameters || {}),
       properties: {
         ...((((origEdit as any).parameters || {}).properties) || {}),
+        start_hash: {
+          type: "string",
+          description: "Hashline anchor for the first line to replace (copied from hashline_read HASH column).",
+        },
+        end_hash: {
+          type: "string",
+          description: "Hashline anchor for the last line to replace. Use same hash as start_hash for single-line edit.",
+        },
+        replacement: {
+          type: "string",
+          description: "Replacement text with literal newlines replacing the anchor range. Empty string deletes the range. Only used with start_hash/end_hash.",
+        },
+        oldText: {
+          type: "string",
+          description: "Exact existing text to replace.",
+        },
+        newText: {
+          type: "string",
+          description: "Replacement text for oldText.",
+        },
         dryRun: {
           type: "boolean",
-          description:
-            "With hashlineChanges: validate anchors and return diff without writing (same as hashline_edit dryRun).",
-        },
-        hashlineChanges: {
-          type: "array",
-          description:
-            "Hashline-anchored edits. Each entry: { hash_range_inclusive: [start, end], content_lines: string[] }. Preferred over oldString/newString — no fuzzy matching, no stale-view risk.",
-          items: {
-            type: "object",
-            properties: {
-              hash_range_inclusive: {
-                type: "array",
-                items: { type: "string" },
-                minItems: 2,
-                maxItems: 2,
-                description: "[start_anchor, end_anchor] from a prior hashline_read. Use identical anchor for a single-line edit.",
-              },
-              content_lines: {
-                type: "array",
-                items: { type: "string" },
-                description: "Replacement lines. Pass an empty array to delete the range.",
-              },
-            },
-            required: ["hash_range_inclusive", "content_lines"],
-            additionalProperties: false,
-          },
+          description: "When true: validate anchors and return diff without writing (for hashline path).",
         },
       },
+      required: ["path"],
+      additionalProperties: true,
     },
 
     async execute(tid: string, params: any, sig: any, upd: any, ctx: any) {
       const fp = params.path ?? params.file_path ?? "";
 
       // Hashline path: strict, no fuzzy fallback, atomic write.
-      // If the model uses hashlineChanges, route exclusively here. Otherwise fall through
-      // to the legacy 6-strategy oldString/newString path below.
-      if (Array.isArray(params.hashlineChanges) && params.hashlineChanges.length > 0) {
+      if (params.start_hash && params.end_hash) {
         if (!fp) {
           return {
-            content: [{ type: "text", text: "[E_BAD_INPUT] path required for hashlineChanges" }],
+            content: [{ type: "text", text: "[E_BAD_INPUT] path required for hashline" }],
             isError: true,
           };
         }
         const resolvedFp = resolve(cwd, fp);
+        const content_lines = params.replacement === "" ? [] : (params.replacement?.split("\n") ?? []);
+        const changes: Array<{ hash_range_inclusive: [string, string]; content_lines: string[] }> = [{ hash_range_inclusive: [params.start_hash, params.end_hash], content_lines }];
         return runHashlineEdit({
           resolvedPath: resolvedFp,
-          changes: params.hashlineChanges,
+          changes,
           dryRun: params.dryRun === true,
           toolCallId: tid,
           onDiffStats: (id, diff) => stashHashlineEditHeaderStats(id, diff.lines.length, diff.added, diff.removed),
@@ -2369,35 +2366,24 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       type: "object",
       properties: {
         path: { type: "string", description: "Absolute or relative file path" },
+        start_hash: {
+          type: "string",
+          description: "Hashline anchor for the first line to replace (copied from hashline_read HASH column).",
+        },
+        end_hash: {
+          type: "string",
+          description: "Hashline anchor for the last line to replace. Use same hash as start_hash for single-line edit (copied from hashline_read HASH column).",
+        },
+        replacement: {
+          type: "string",
+          description: "Replacement text with literal newlines replacing the anchor range. Empty string deletes the range.",
+        },
         dryRun: {
           type: "boolean",
           description: "If true, validate anchors and return diff without writing the file.",
         },
-        hashlineChanges: {
-          type: "array",
-          description: "Atomic list of range replacements (empty content_lines deletes the range).",
-          items: {
-            type: "object",
-            properties: {
-              hash_range_inclusive: {
-                type: "array",
-                description: "[start_anchor, end_anchor] from hashline_read (LINE│HASH│content).",
-                items: { type: "string" },
-                minItems: 2,
-                maxItems: 2,
-              },
-              content_lines: {
-                type: "array",
-                description: "Replacement lines; use [] to delete the anchored range.",
-                items: { type: "string" },
-              },
-            },
-            required: ["hash_range_inclusive", "content_lines"],
-            additionalProperties: false,
-          },
-        },
       },
-      required: ["path", "hashlineChanges"],
+      required: ["path", "start_hash", "end_hash"],
       additionalProperties: false,
     },
     renderCall(args: any, theme: any, ctx: any) {
@@ -2424,12 +2410,14 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
       if (!fp) {
         return { content: [{ type: "text", text: "[E_BAD_INPUT] path required" }], isError: true, details: {} };
       }
-      if (!Array.isArray(params.hashlineChanges) || params.hashlineChanges.length === 0) {
-        return { content: [{ type: "text", text: "[E_EMPTY] hashlineChanges must be a non-empty array" }], isError: true, details: {} };
+      if (!params.start_hash || !params.end_hash) {
+        return { content: [{ type: "text", text: "[E_BAD_INPUT] start_hash and end_hash required" }], isError: true, details: {} };
       }
+      const content_lines = params.replacement === "" ? [] : (params.replacement?.split("\n") ?? []);
+      const changes: Array<{ hash_range_inclusive: [string, string]; content_lines: string[] }> = [{ hash_range_inclusive: [params.start_hash, params.end_hash], content_lines }];
       return runHashlineEdit({
         resolvedPath: fp,
-        changes: params.hashlineChanges,
+        changes,
         dryRun: params.dryRun === true,
         toolCallId: tid,
         onDiffStats: (id, diff) => stashHashlineEditHeaderStats(id, diff.lines.length, diff.added, diff.removed),

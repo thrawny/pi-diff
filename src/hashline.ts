@@ -171,7 +171,7 @@ export interface HashlineApplyOk {
 export interface HashlineApplyError {
 	ok: false;
 	error: string;
-	code: "E_STALE_ANCHOR" | "E_BAD_RANGE" | "E_OVERLAP" | "E_EMPTY" | "E_NOT_INITIALIZED" | "E_READ_FAILED" | "E_WRITE_FAILED";
+	code: "E_STALE_ANCHOR" | "E_BAD_RANGE" | "E_OVERLAP" | "E_EMPTY" | "E_NOT_INITIALIZED" | "E_READ_FAILED" | "E_WRITE_FAILED" | "E_BOUNDARY_DUP";
 	ref?: string;
 	suggestions?: Array<{ line: number; ref: string }>;
 }
@@ -253,7 +253,6 @@ export function applyHashlineEdits(
 	}
 
 	const workingLines = fileContent.split("\n");
-	const boundaryWarnings: string[] = [];
 	let minChangedLine = workingLines.length;
 	let maxChangedLine = -1;
 
@@ -263,15 +262,19 @@ export function applyHashlineEdits(
 		if (newLines.length > 0) {
 			const prev = emptyToBoundary(workingLines.join("\n"), startLine, "prev");
 			if (prev !== null && prev === newLines[0]) {
-				boundaryWarnings.push(
-					`[W_BOUNDARY_DUP] first replacement line duplicates the line just before the range (line ${startLine}). Consider removing the duplicate.`,
-				);
+				return {
+					ok: false,
+					error: `[E_BOUNDARY_DUP] first replacement line duplicates the line just before the range (line ${startLine}). Remove line ${JSON.stringify(newLines[0])} from the start of content_lines.`,
+					code: "E_BOUNDARY_DUP",
+				};
 			}
 			const next = emptyToBoundary(workingLines.join("\n"), endLine, "next");
 			if (next !== null && next === newLines[newLines.length - 1]) {
-				boundaryWarnings.push(
-					`[W_BOUNDARY_DUP] last replacement line duplicates the line just after the range (line ${endLine + 2}). Consider removing the duplicate.`,
-				);
+				return {
+					ok: false,
+					error: `[E_BOUNDARY_DUP] last replacement line duplicates the line just after the range (line ${endLine + 2}). Remove line ${JSON.stringify(newLines[newLines.length - 1])} from the end of content_lines.`,
+					code: "E_BOUNDARY_DUP",
+				};
 			}
 		}
 		workingLines.splice(startLine, endLine - startLine + 1, ...newLines);
@@ -283,7 +286,7 @@ export function applyHashlineEdits(
 		ok: true,
 		newContent: workingLines.join("\n"),
 		changedRange: [minChangedLine, maxChangedLine],
-		boundaryWarnings,
+		boundaryWarnings: [],
 	};
 }
 

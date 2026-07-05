@@ -10,13 +10,13 @@ import type { HashlineEdit } from "../hashline.js";
 import { formatHashlineReadLines } from "../hashline.js";
 
 export const HASHLINE_WORKFLOW =
-	"Workflow: hashline_read(path) → copy anchors from output → hashline_edit(path, hashlineChanges). Do not use plain read for edits.";
+	"Workflow: hashline_read(path) → copy HASH anchors from output → hashline_edit(path, start_hash, end_hash, replacement). Do not use plain read for edits.";
 
 export const HASHLINE_READ_DESC =
 	`${HASHLINE_WORKFLOW} Returns lines as LINE│HASH│content (1-based line numbers). Use HASH anchors in hashline_edit only.`;
 
 export const HASHLINE_EDIT_DESC =
-	`${HASHLINE_WORKFLOW} Strict atomic apply. Empty content_lines deletes the range. Set dryRun:true to validate and preview diff without writing.`;
+	`${HASHLINE_WORKFLOW} Strict atomic apply. Empty replacement deletes the range. Set dryRun:true to validate and preview diff without writing.`;
 
 export type HashlineToolResult = {
 	content: Array<{ type: "text"; text: string }>;

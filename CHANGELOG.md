@@ -4,6 +4,13 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.4] — 2026-07-09
+
+### Fixed
+
+- **Published package contents** — include all built `dist/` artifacts in the npm package so runtime imports like `./core/apply-patch.js` are present after install.
+- **Packaging safety** — replace the hand-maintained file allowlist with `dist/` packaging to prevent future missing build-module releases.
+
 ## [0.7.3] — 2026-07-08
 
 ### Added

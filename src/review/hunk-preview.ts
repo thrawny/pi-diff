@@ -51,6 +51,10 @@ interface DiffColors {
 	fgCtx: string;
 }
 
+interface DiffRenderOptions {
+	compactGutter?: boolean;
+}
+
 const DIFF_PRESETS: Record<string, DiffPreset> = {
 	default: {
 		name: "default",
@@ -648,7 +652,7 @@ function rule(width: number): string {
 	return `${BG_BASE}${FG_RULE}${"─".repeat(width)}${RST}`;
 }
 
-function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number): boolean {
+function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number, options: DiffRenderOptions = {}): boolean {
 	if (!diff.lines.length) return false;
 	if (width < SPLIT_MIN_WIDTH) return false;
 	const numberWidth = Math.max(
@@ -656,7 +660,9 @@ function shouldUseSplit(diff: ParsedDiff, width: number, maxRows: number): boole
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
 	const half = Math.floor(width / 2);
-	const gutterWidth = numberWidth + 4;
+	const compactGutter = !!options.compactGutter;
+	const gutterWidth = numberWidth + (compactGutter ? 3 : 4);
+
 	const codeWidth = Math.max(12, half - gutterWidth);
 	if (codeWidth < SPLIT_MIN_CODE_WIDTH) return false;
 	const visibleLines = diff.lines.slice(0, maxRows);
@@ -798,6 +804,7 @@ export async function renderUnified(
 	maxLines: number,
 	colors: DiffColors,
 	width: number,
+	options: DiffRenderOptions = {},
 ): Promise<string> {
 	if (!diff.lines.length) return "";
 	const visible = diff.lines.slice(0, maxLines);
@@ -806,7 +813,9 @@ export async function renderUnified(
 		2,
 		String(Math.max(...visible.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
-	const gutterWidth = numberWidth + 4;
+	const compactGutter = !!options.compactGutter;
+	const gutterWidth = numberWidth + (compactGutter ? 3 : 4);
+
 	const codeWidth = Math.max(20, renderWidth - gutterWidth);
 	const canHighlight = diff.chars <= MAX_HL_CHARS && visible.length <= maxLines;
 
@@ -834,7 +843,7 @@ export async function renderUnified(
 		bodyBg = "",
 	): void {
 		const borderFg = sign === "-" ? colors.fgDel : sign === "+" ? colors.fgAdd : "";
-		const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
+		const border = compactGutter ? "" : borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
 		const numFg = borderFg || FG_LNUM;
 		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
 		const continuationGutter = `${border}${gutterBg}${" ".repeat(numberWidth + 3)}${RST}`;
@@ -927,8 +936,10 @@ export async function renderSplit(
 	maxLines: number,
 	colors: DiffColors,
 	width: number,
+	options: DiffRenderOptions = {},
 ): Promise<string> {
-	if (!shouldUseSplit(diff, width, maxLines)) return renderUnified(diff, language, maxLines, colors, width);
+	if (!shouldUseSplit(diff, width, maxLines, options))
+		return renderUnified(diff, language, maxLines, colors, width, options);
 	if (!diff.lines.length) return "";
 
 	// Build rows — process ctx/sep individually, group del/add blocks
@@ -973,7 +984,8 @@ export async function renderSplit(
 		2,
 		String(Math.max(...diff.lines.map((line) => line.oldNum ?? line.newNum ?? 0), 0)).length,
 	);
-	const gutterWidth = numberWidth + 4;
+	const compactGutter = !!options.compactGutter;
+	const gutterWidth = numberWidth + (compactGutter ? 3 : 4);
 	const half = Math.floor(renderWidth / 2);
 	const codeWidth = Math.max(12, half - gutterWidth);
 	const canHighlight = diff.chars <= MAX_HL_CHARS && visible.length * 2 <= maxLines * 2;
@@ -1006,7 +1018,9 @@ export async function renderSplit(
 		if (line.type === "sep") {
 			const label = sepLabelSplit(getSepStyle(), line.hunkMeta, line.newNum, line.content);
 			if (!label) return { gutter: "", continuation: "", bodyRows: [""] };
-			const gutter = `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 3)}${RST}`;
+			const gutter = compactGutter
+				? `${BG_BASE}${FG_DIM}${fit("", numberWidth + 3)}${RST}`
+				: `${BG_BASE} ${FG_DIM}${fit("", numberWidth + 3)}${RST}`;
 			return {
 				gutter,
 				continuation: gutter,
@@ -1021,7 +1035,7 @@ export async function renderSplit(
 		const sign = isDeletion ? "-" : isAddition ? "+" : " ";
 		const number = isDeletion ? line.oldNum : isAddition ? line.newNum : side === "left" ? line.oldNum : line.newNum;
 		const borderFg = isDeletion ? colors.fgDel : isAddition ? colors.fgAdd : "";
-		const border = borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
+		const border = compactGutter ? "" : borderFg ? `${borderFg}${getBorderBar()}${RST}` : `${BG_BASE} `;
 		const numFg = borderFg || FG_LNUM;
 		let body = isDeletion || isAddition ? injectBg(highlight, [], codeBg, codeBg) : `${BG_BASE}${DIM}${highlight}`;
 		if (ranges && ranges.length > 0) body = injectBg(highlight, ranges, codeBg, isDeletion ? BG_DEL_W : BG_ADD_W);

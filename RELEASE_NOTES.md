@@ -1,15 +1,15 @@
-# @heyhuynhgiabuu/pi-diff v0.6.10
+# @heyhuynhgiabuu/pi-diff v0.7.3
 
 ## Highlights
 
-- **Default expand** — `session_start` → `setToolsExpanded(true)` overrides pi-pretty’s global collapse for write/edit results.
-- **Overwrite write** — full diff preview by default (`_type: diff` no longer collapses to a one-line summary).
-- **Themed stats** — write/edit call lines show **green +X** / **red -Y** via `summarizeThemed` and write header stash.
+- **New `apply_patch` tool** — atomic multi-file add/update/delete/move operations with structured JSON input.
+- **Simpler edit surface** — removes `hashline_read` / `hashline_edit` and keeps `read`, `edit`, and `apply_patch` as the supported file-edit workflow.
+- **Preview polish** — improves `write`, `edit`, and `apply_patch` diff rendering with compact gutters, cleaner headers, and safer cached previews.
 
 ## Install
 
 ```bash
-pi install npm:@heyhuynhgiabuu/pi-diff@0.6.10
+pi install npm:@heyhuynhgiabuu/pi-diff@0.7.3
 ```
 
 Requires Pi **0.80.x** (`@earendil-works/pi-coding-agent` ^0.80.0).

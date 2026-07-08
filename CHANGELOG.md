@@ -4,6 +4,24 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.3] — 2026-07-08
+
+### Added
+
+- **`apply_patch` tool** — atomic multi-file add/update/delete/move operations with structured JSON input.
+
+### Changed
+
+- **Tool surface** — remove `hashline_read` / `hashline_edit` in favor of `read`, `edit`, and `apply_patch`.
+- **`edit` execution path** — simplify back to single-file text replacement using the shared replace matcher.
+- **Diff previews** — refine `write`, `edit`, and `apply_patch` rendering with compact gutters, safer async preview cache keys, and tool-specific header spacing.
+- **`apply_patch` summary** — shorten multi-file headers to show the first path followed by `+n more`.
+
+### Fixed
+
+- **Preview backgrounds** — prevent header-only background styling from leaking into diff bodies after ANSI resets.
+- **`edit` spacing** — restore the intended one-line top pad plus one-column left indent for header and diff body previews.
+
 ## [0.7.1] — 2026-07-03
 
 ### Fixed

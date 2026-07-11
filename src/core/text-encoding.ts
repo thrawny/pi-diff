@@ -35,10 +35,6 @@ export function prepareTextForHashlineEdit(rawUtf8: string): {
 	return { bom, ending, normalized };
 }
 
-export function finalizeHashlineWriteContent(
-	bom: string,
-	ending: LineEnding,
-	lfContent: string,
-): string {
+export function finalizeHashlineWriteContent(bom: string, ending: LineEnding, lfContent: string): string {
 	return bom + restoreLineEndings(lfContent, ending);
 }

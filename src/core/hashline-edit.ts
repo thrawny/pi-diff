@@ -1,7 +1,7 @@
-import { applyHashlineEdits, type HashlineApplyError, type HashlineApplyOk, type HashlineEdit } from "../hashline.js";
-import { finalizeHashlineWriteContent, prepareTextForHashlineEdit } from "./text-encoding.js";
 import * as fs from "node:fs";
 import * as path from "node:path";
+import { applyHashlineEdits, type HashlineApplyError, type HashlineApplyOk, type HashlineEdit } from "../hashline.js";
+import { finalizeHashlineWriteContent, prepareTextForHashlineEdit } from "./text-encoding.js";
 
 export type FileHashlineApplyResult = HashlineApplyOk | HashlineApplyError;
 

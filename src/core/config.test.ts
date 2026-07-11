@@ -1,9 +1,16 @@
 import { mkdtempSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
 import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { invalidatePiDiffConfig, loadPiDiffConfig, configSepStyle, configLineNumbers, configIndicatorStyle, configLongLines, configFileHeader, configColors } from "./config.js";
+import {
+	configColors,
+	configFileHeader,
+	configLongLines,
+	configSepStyle,
+	invalidatePiDiffConfig,
+	loadPiDiffConfig,
+} from "./config.js";
 
 describe("loadPiDiffConfig", () => {
 	let tmpDir: string;

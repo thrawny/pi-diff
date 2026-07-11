@@ -4,16 +4,9 @@
 // stale oldText and getting caught in repeated retry loops.
 
 import { readFileSync } from "node:fs";
-import type {
-	EditToolCallEvent,
-	ExtensionHandler,
-	ToolCallEventResult,
-} from "@earendil-works/pi-coding-agent";
+import type { EditToolCallEvent, ExtensionHandler, ToolCallEventResult } from "@earendil-works/pi-coding-agent";
 
-const guardEditToolCall: ExtensionHandler<EditToolCallEvent, ToolCallEventResult> = async (
-	event,
-	_ctx,
-) => {
+const guardEditToolCall: ExtensionHandler<EditToolCallEvent, ToolCallEventResult> = async (event, _ctx) => {
 	const { path, edits } = event.input;
 	if (!edits || !Array.isArray(edits)) return;
 	let fileContent: string;
@@ -36,8 +29,5 @@ export function registerEditGuard(pi: unknown): void {
 	if (pi == null) return;
 	const on = (pi as { on?: unknown }).on;
 	if (typeof on !== "function") return;
-	(pi as { on: (event: string, handler: typeof guardEditToolCall) => void }).on(
-		"tool_call",
-		guardEditToolCall,
-	);
+	(pi as { on: (event: string, handler: typeof guardEditToolCall) => void }).on("tool_call", guardEditToolCall);
 }

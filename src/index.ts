@@ -63,6 +63,16 @@ interface PiTheme {
 	bold(text: string): string;
 }
 
+const ARROW_PREFIXED_TOOL_HEADERS = new Set(["write", "create", "edit", "apply_patch"]);
+
+function formatToolHeaderName(name: string): string {
+	return ARROW_PREFIXED_TOOL_HEADERS.has(name) ? `← ${name}` : name;
+}
+
+function formatToolHeaderPath(theme: Pick<PiTheme, "fg">, filePath: string): string {
+	return theme.fg("toolTitle", filePath);
+}
+
 // ---------------------------------------------------------------------------
 // Diff Theme System — presets, auto-derive, and per-color overrides
 //
@@ -1336,6 +1346,8 @@ async function renderSplit(
 
 export const __testing = {
 	computeHunkBlocks,
+	formatToolHeaderName,
+	formatToolHeaderPath,
 	normalizeShikiContrast,
 	getSepStyle,
 	parseDiff,
@@ -1407,7 +1419,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		headerLeftPad: 1,
 		bodyLeftPad: 1,
 		topPad: 1,
-		bottomPad: 0,
+		bottomPad: 1,
 		previewBottomPad: 1,
 	} as const;
 	function resolvePreviewDiffColors(theme: any): DiffColors {
@@ -1439,7 +1451,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		const content =
 			meta !== undefined && meta !== null
 				? `${leftPad}${meta}${suffix}`
-				: `${leftPad}${theme.fg("toolTitle", theme.bold(label ?? ""))} ${theme.fg("accent", sp(filePath ?? ""))}${suffix}`;
+				: `${leftPad}${theme.fg("toolTitle", theme.bold(formatToolHeaderName(label ?? "")))} ${formatToolHeaderPath(theme, sp(filePath ?? ""))}${suffix}`;
 		return `${"\n".repeat(topPad)}${content}${"\n".repeat(bottomPad)}`;
 	}
 
@@ -1456,8 +1468,24 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		text.customBgFn = undefined;
 	}
 
+	function setToolErrorBg(text: any, theme: PiTheme) {
+		let background = BG_BASE;
+		try {
+			background = theme.getBgAnsi?.("toolErrorBg") ?? BG_BASE;
+		} catch {
+			// Use the regular tool background when the theme has no error background.
+		}
+		text.customBgFn = (line: string) => injectBg(line, [], background, background);
+	}
+
+	function formatToolErrorResult(name: string, message: string, theme: any): string {
+		const meta = theme.fg("error", theme.bold(formatToolHeaderName(name)));
+		const header = formatToolFrameHeaderText({ meta, theme, headerLeftPad: 1, topPad: 0, bottomPad: 1 });
+		return `${header}\n ${theme.fg("error", message)}\n`;
+	}
+
 	function summarizeApplyPatchChanges(changes: Array<{ action: string; path: string }>, theme: any): string {
-		const labels = changes.map((change) => theme.fg("accent", sp(change.path)));
+		const labels = changes.map((change) => formatToolHeaderPath(theme, sp(change.path)));
 		if (labels.length <= 1) return labels.join("");
 		return `${labels[0]}${theme.fg("muted", `, +${labels.length - 1} more`)}`;
 	}
@@ -1514,11 +1542,11 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					"ap",
 					(width: number) =>
 						formatToolFrameHeader({
-							meta: `${theme.fg("toolTitle", theme.bold("apply_patch"))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(1 change)`)}${TOOL_RESULT_INDENT}${theme.fg("accent", sp(change.path))}`,
+							meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(1 change)`)}${TOOL_RESULT_INDENT}${formatToolHeaderPath(theme, sp(change.path))}`,
 							theme,
 							width,
 							topPad: 0,
-							bottomPad: 0,
+							bottomPad: 1,
 						}),
 					parsed,
 					detectDiffLanguage(change.path),
@@ -1558,11 +1586,11 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			"ap",
 			(width: number) =>
 				formatToolFrameHeader({
-					meta: `${theme.fg("toolTitle", theme.bold("apply_patch"))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(${previewable.length} changes)`)} ${summarizeThemed(added, removed, theme)}${TOOL_RESULT_INDENT}${theme.fg("muted", summarizeApplyPatchChanges(previewable, theme))}`,
+					meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(${previewable.length} changes)`)} ${summarizeThemed(added, removed, theme)}${TOOL_RESULT_INDENT}${summarizeApplyPatchChanges(previewable, theme)}`,
 					theme,
 					width,
 					topPad: 0,
-					bottomPad: 0,
+					bottomPad: 1,
 				}),
 			{ lines, added, removed, chars },
 			mixedLanguage ? undefined : language,
@@ -1848,12 +1876,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const n = String(args.content).split("\n").length;
 				const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
 				setToolHeaderBg(text);
-				text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix, topPad: 0, bottomPad: 0 }));
+				text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix, topPad: 0, bottomPad: 1 }));
 				return text;
 			}
 
 			if (args?.content && ctx.argsComplete && isNew) {
-				const title = formatToolFrameHeader({ label, filePath: fp, theme, width: w, topPad: 0, bottomPad: 0 });
+				const title = formatToolFrameHeader({ label, filePath: fp, theme, width: w, topPad: 0, bottomPad: 1 });
 				const previewKey = `create:${sharedThemeCacheKey(theme)}:${fp}:${String(args.content).length}`;
 				if (ctx.state._previewKey !== previewKey) {
 					ctx.state._previewKey = previewKey;
@@ -1873,7 +1901,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			}
 
 			setToolHeaderBg(text);
-			text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix: stats, topPad: 0, bottomPad: 0 }));
+			text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix: stats, topPad: 0, bottomPad: 1 }));
 			return text;
 		},
 
@@ -1886,8 +1914,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 						.map((c: { type: string; text?: string }) => c.text || "")
 						.join("\n") ?? "Error";
 				text.__piDiffTask = undefined;
-				clearToolHeaderBg(text);
-				text.setText(`\n${theme.fg("error", e)}`);
+				setToolErrorBg(text, theme);
+				text.setText(formatToolErrorResult("write", e, theme));
 
 				return text;
 			}
@@ -2236,7 +2264,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 						.map((c: { type: string; text?: string }) => c.text || "")
 						.join("\n") ?? "Error";
 				text.__piDiffTask = undefined;
-				text.setText(`\n${theme.fg("error", e)}`);
+				setToolErrorBg(text, theme);
+				text.setText(formatToolErrorResult("edit", e, theme));
 				return text;
 			}
 			const d = result.details;
@@ -2340,9 +2369,9 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			setToolHeaderBg(text);
 			text.setText(
 				formatToolFrameHeaderText({
-					meta: `${theme.fg("toolTitle", theme.bold("apply_patch"))}${suffix}`,
+					meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${suffix}`,
 					topPad: 0,
-					bottomPad: 0,
+					bottomPad: 1,
 				}),
 			);
 			return text;
@@ -2352,8 +2381,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			if (ctx.isError) {
 				const out = (result.content || []).map((c: any) => c.text).join("\n") || "Error";
 				text.__piDiffTask = undefined;
-				clearToolHeaderBg(text);
-				text.setText(theme.fg("error", out));
+				setToolErrorBg(text, theme);
+				text.setText(formatToolErrorResult("apply_patch", out, theme));
 				return text;
 			}
 

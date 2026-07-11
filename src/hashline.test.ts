@@ -1,12 +1,12 @@
-import { describe, it, expect, beforeAll } from "vitest";
+import { beforeAll, describe, expect, it } from "vitest";
 import {
-	initHashline,
+	applyHashlineEdits,
+	clearHashlineCache,
+	formatHashlineReadView,
 	hashLines,
+	initHashline,
 	parseAnchor,
 	resolveAnchor,
-	applyHashlineEdits,
-	formatHashlineReadView,
-	clearHashlineCache,
 } from "../src/hashline.js";
 
 beforeAll(async () => {
@@ -63,18 +63,18 @@ describe("hashLines", () => {
 });
 
 describe("parseAnchor edge cases (regression: must not throw on bad input)", () => {
-  it("returns empty string for undefined", () => {
-    expect(parseAnchor(undefined as any)).toBe("");
-  });
-  it("returns empty string for null", () => {
-    expect(parseAnchor(null as any)).toBe("");
-  });
-  it("returns empty string for empty string", () => {
-    expect(parseAnchor("")).toBe("");
-  });
-  it("returns empty string for non-string number", () => {
-    expect(parseAnchor(42 as any)).toBe("");
-  });
+	it("returns empty string for undefined", () => {
+		expect(parseAnchor(undefined as any)).toBe("");
+	});
+	it("returns empty string for null", () => {
+		expect(parseAnchor(null as any)).toBe("");
+	});
+	it("returns empty string for empty string", () => {
+		expect(parseAnchor("")).toBe("");
+	});
+	it("returns empty string for non-string number", () => {
+		expect(parseAnchor(42 as any)).toBe("");
+	});
 });
 
 describe("parseAnchor", () => {
@@ -134,9 +134,7 @@ describe("applyHashlineEdits", () => {
 	it("replaces a single line", () => {
 		const content = "a\nb\nc";
 		const hashes = hashLines(content);
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["B"] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["B"] }]);
 		expect(r.ok).toBe(true);
 		if (r.ok) expect(r.newContent).toBe("a\nB\nc");
 	});
@@ -164,9 +162,7 @@ describe("applyHashlineEdits", () => {
 	it("deletes lines (empty content_lines)", () => {
 		const content = "a\nb\nc\nd";
 		const hashes = hashLines(content);
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: [hashes[1], hashes[2]], content_lines: [] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: [hashes[1], hashes[2]], content_lines: [] }]);
 		expect(r.ok).toBe(true);
 		if (r.ok) expect(r.newContent).toBe("a\nd");
 	});
@@ -195,9 +191,7 @@ describe("applyHashlineEdits", () => {
 
 	it("rejects stale anchor with E_STALE_ANCHOR", () => {
 		const content = "a\nb\nc";
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: ["ZZZ", "ZZZ"], content_lines: ["X"] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: ["ZZZ", "ZZZ"], content_lines: ["X"] }]);
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.code).toBe("E_STALE_ANCHOR");
 	});
@@ -205,9 +199,7 @@ describe("applyHashlineEdits", () => {
 	it("rejects end anchor before start", () => {
 		const content = "a\nb\nc";
 		const hashes = hashLines(content);
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: [hashes[2], hashes[0]], content_lines: ["X"] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: [hashes[2], hashes[0]], content_lines: ["X"] }]);
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.code).toBe("E_BAD_RANGE");
 	});
@@ -216,9 +208,7 @@ describe("applyHashlineEdits", () => {
 		const content = "a\nb\nc";
 		const hashes = hashLines(content);
 		// Replacing line 1 (b) with a copy of line 0 (a) creates a boundary dup
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["a"] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["a"] }]);
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.code).toBe("E_BOUNDARY_DUP");
 	});
@@ -227,9 +217,7 @@ describe("applyHashlineEdits", () => {
 		const content = "a\nb\nc";
 		const hashes = hashLines(content);
 		// Replacing line 1 (b) with a copy of line 2 (c) creates a boundary dup
-		const r = applyHashlineEdits(content, [
-			{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["c"] },
-		]);
+		const r = applyHashlineEdits(content, [{ hash_range_inclusive: [hashes[1], hashes[1]], content_lines: ["c"] }]);
 		expect(r.ok).toBe(false);
 		if (!r.ok) expect(r.code).toBe("E_BOUNDARY_DUP");
 	});

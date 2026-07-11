@@ -4,7 +4,6 @@ import {
 	finalizeHashlineWriteContent,
 	normalizeToLF,
 	prepareTextForHashlineEdit,
-	restoreLineEndings,
 	stripBom,
 } from "./text-encoding.js";
 

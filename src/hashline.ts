@@ -66,7 +66,7 @@ export function hashLines(content: string): string[] {
 	for (const line of lines) {
 		const canon = canonicalize(line);
 		let hash = toDict(rawHash(canon) % HASH_MOD);
-		let count = seen.get(hash) ?? 0;
+		const count = seen.get(hash) ?? 0;
 		if (count > 0) {
 			let resolved: string | null = null;
 			for (let retry = 1; retry < 1000; retry++) {
@@ -121,17 +121,13 @@ function formatAnchorFailureMessage(
 				: "not found (file changed since hashline_read)";
 	let msg = `[E_STALE_ANCHOR] ${role} anchor ${JSON.stringify(refRaw)} — ${reason}.`;
 	if (fail.suggestions?.length) {
-		const hints = fail.suggestions
-			.map((s) => `line ${s.line + 1} ref ${s.ref}`)
-			.join("; ");
+		const hints = fail.suggestions.map((s) => `line ${s.line + 1} ref ${s.ref}`).join("; ");
 		msg += ` Nearby: ${hints}.`;
 	}
 	const rereadStart = fail.suggestions?.length
 		? Math.max(1, Math.min(...fail.suggestions.map((s) => s.line + 1)) - 2)
 		: 1;
-	const rereadEnd = fail.suggestions?.length
-		? Math.max(...fail.suggestions.map((s) => s.line + 1)) + 2
-		: "";
+	const rereadEnd = fail.suggestions?.length ? Math.max(...fail.suggestions.map((s) => s.line + 1)) + 2 : "";
 	msg += ` Next: hashline_read path=${JSON.stringify(filePath)} startLine=${rereadStart}${rereadEnd ? ` endLine=${rereadEnd}` : ""}.`;
 	return msg;
 }
@@ -171,7 +167,15 @@ export interface HashlineApplyOk {
 export interface HashlineApplyError {
 	ok: false;
 	error: string;
-	code: "E_STALE_ANCHOR" | "E_BAD_RANGE" | "E_OVERLAP" | "E_EMPTY" | "E_NOT_INITIALIZED" | "E_READ_FAILED" | "E_WRITE_FAILED" | "E_BOUNDARY_DUP";
+	code:
+		| "E_STALE_ANCHOR"
+		| "E_BAD_RANGE"
+		| "E_OVERLAP"
+		| "E_EMPTY"
+		| "E_NOT_INITIALIZED"
+		| "E_READ_FAILED"
+		| "E_WRITE_FAILED"
+		| "E_BOUNDARY_DUP";
 	ref?: string;
 	suggestions?: Array<{ line: number; ref: string }>;
 }

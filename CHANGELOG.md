@@ -4,6 +4,14 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.5] — 2026-07-11
+
+### Changed
+
+- **Tool headers** — prefix `write`, `edit`, and `apply_patch` headers with `←`, align header paths with the tool-title color, and refine result spacing.
+- **Failure rendering** — show failed `write`, `edit`, and `apply_patch` headers with the error foreground and background while preserving error-message styling.
+- **Code quality** — resolve the repository's Biome lint violations.
+
 ## [0.7.4] — 2026-07-09
 
 ### Fixed

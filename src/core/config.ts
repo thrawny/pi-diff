@@ -63,7 +63,7 @@ export interface PiDiffJson {
 // Module state — singleton cache
 // ---------------------------------------------------------------------------
 
-let _cachedConfig: PiDiffJson | null | undefined = undefined; // null = not loaded, undefined = attempted/no-file
+let _cachedConfig: PiDiffJson | null | undefined; // null = not loaded, undefined = attempted/no-file
 
 /**
  * Load pi-diff.json from project or global paths.
@@ -75,16 +75,13 @@ export function loadPiDiffConfig(cwd?: string): PiDiffJson {
 	// When a specific cwd is provided (e.g. for testing), only search that path.
 	// When omitted, search project root then global.
 	const searchPaths = cwd
-		? [
-				join(cwd, "pi-diff.json"),
-				join(cwd, ".pi", "pi-diff.json"),
-		  ]
+		? [join(cwd, "pi-diff.json"), join(cwd, ".pi", "pi-diff.json")]
 		: [
 				join(process.cwd(), "pi-diff.json"),
 				join(process.cwd(), ".pi", "pi-diff.json"),
 				join(homedir(), ".pi", "agent", "pi-diff.json"),
 				join(homedir(), ".pi", "pi-diff.json"),
-		  ];
+			];
 
 	// Deduplicate by resolving to absolute paths
 	const seen = new Set<string>();
@@ -129,7 +126,7 @@ function deepMerge(a: PiDiffJson, b: PiDiffJson): PiDiffJson {
 		const bVal = b[key];
 		if (bVal === undefined) continue;
 		if (key === "colors" && typeof bVal === "object" && bVal !== null) {
-			result.colors = { ...(a.colors as Record<string, string> || {}), ...(bVal as Record<string, string>) };
+			result.colors = { ...((a.colors as Record<string, string>) || {}), ...(bVal as Record<string, string>) };
 		} else {
 			(result as Record<string, unknown>)[key] = bVal as unknown;
 		}

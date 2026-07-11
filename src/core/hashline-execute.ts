@@ -1,22 +1,16 @@
-import * as Diff from "diff";
 import * as fs from "node:fs";
-import { parsePatchFiles, type ParsedDiff } from "./diff.js";
-import {
-	applyHashlineEditsToFile,
-	type FileHashlineApplyResult,
-	type HashlineEditApplyOptions,
-} from "./hashline-edit.js";
+import * as Diff from "diff";
 import type { HashlineEdit } from "../hashline.js";
 import { formatHashlineReadLines } from "../hashline.js";
+import { type ParsedDiff, parsePatchFiles } from "./diff.js";
+import { applyHashlineEditsToFile, type HashlineEditApplyOptions } from "./hashline-edit.js";
 
 export const HASHLINE_WORKFLOW =
 	"Workflow: hashline_read(path) → copy HASH anchors from output → hashline_edit(path, start_hash, end_hash, replacement). Do not use plain read for edits.";
 
-export const HASHLINE_READ_DESC =
-	`${HASHLINE_WORKFLOW} Returns lines as LINE│HASH│content (1-based line numbers). Use HASH anchors in hashline_edit only.`;
+export const HASHLINE_READ_DESC = `${HASHLINE_WORKFLOW} Returns lines as LINE│HASH│content (1-based line numbers). Use HASH anchors in hashline_edit only.`;
 
-export const HASHLINE_EDIT_DESC =
-	`${HASHLINE_WORKFLOW} Strict atomic apply. Empty replacement deletes the range. Set dryRun:true to validate and preview diff without writing.`;
+export const HASHLINE_EDIT_DESC = `${HASHLINE_WORKFLOW} Strict atomic apply. Empty replacement deletes the range. Set dryRun:true to validate and preview diff without writing.`;
 
 export type HashlineToolResult = {
 	content: Array<{ type: "text"; text: string }>;
@@ -40,12 +34,7 @@ function buildDiff(before: string, after: string, fp: string): ParsedDiff | null
 	return parsed[0] || null;
 }
 
-function formatOkText(
-	fp: string,
-	changedRange: [number, number],
-	dryRun: boolean,
-	warnings: string[],
-): string {
+function formatOkText(fp: string, changedRange: [number, number], dryRun: boolean, warnings: string[]): string {
 	const start = changedRange[0] + 1;
 	const end = changedRange[1] + 1;
 	const prefix = dryRun ? "[DRY-RUN]" : "[OK]";

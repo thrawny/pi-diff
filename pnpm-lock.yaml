@@ -17,12 +17,18 @@ importers:
       '@earendil-works/pi-tui':
         specifier: ^0.85.0
         version: 0.85.1
-      '@shikijs/cli':
+      '@shikijs/langs':
+        specifier: ^4.0.2
+        version: 4.3.0
+      '@shikijs/themes':
         specifier: ^4.0.2
         version: 4.3.0
       diff:
         specifier: ^7.0.0
         version: 7.0.0
+      shiki:
+        specifier: ^4.0.2
+        version: 4.3.0
       xxhash-wasm:
         specifier: ^1.1.0
         version: 1.1.0
@@ -629,11 +635,6 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@shikijs/cli@4.3.0':
-    resolution: {integrity: sha512-On4JSevjRHpFFix8Dh/2BWk3xwXL9u0PRl33Gy/Ho5l2pQlgnIZ+8jXLDYp/Qq8S6lOookd/+ZUu4ihIy2tWBQ==}
-    engines: {node: '>=20'}
-    hasBin: true
-
   '@shikijs/core@4.3.0':
     resolution: {integrity: sha512-EooU3i9F6IAE8kEu+AnGf9DFZWkQBZ+hJn3tLVbsH+61mtQiva5biai66fAA6nvFPXkLgvrh7BrR7YcJU83xQQ==}
     engines: {node: '>=20'}
@@ -783,10 +784,6 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  ansis@4.3.1:
-    resolution: {integrity: sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA==}
-    engines: {node: '>=14'}
-
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
@@ -810,10 +807,6 @@ packages:
 
   buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
-
-  cac@7.0.0:
-    resolution: {integrity: sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ==}
-    engines: {node: '>=20.19.0'}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -2024,13 +2017,6 @@ snapshots:
 
   '@rolldown/pluginutils@1.0.1': {}
 
-  '@shikijs/cli@4.3.0':
-    dependencies:
-      '@shikijs/vscode-textmate': 10.0.2
-      ansis: 4.3.1
-      cac: 7.0.0
-      shiki: 4.3.0
-
   '@shikijs/core@4.3.0':
     dependencies:
       '@shikijs/primitive': 4.3.0
@@ -2212,8 +2198,6 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ansis@4.3.1: {}
-
   assertion-error@2.0.1: {}
 
   balanced-match@4.0.4: {}
@@ -2229,8 +2213,6 @@ snapshots:
       balanced-match: 4.0.4
 
   buffer-equal-constant-time@1.0.1: {}
-
-  cac@7.0.0: {}
 
   ccount@2.0.1: {}
 

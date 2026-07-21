@@ -1,14 +1,15 @@
 import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 
-import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
 import { configIndicatorStyle } from "../core/config.js";
 import { getSepStyle, type ParsedDiff, sepLabelSplit, sepLabelUnified } from "../core/diff.js";
+import {
+	type ShikiLanguage as BundledLanguage,
+	type ShikiTheme as BundledTheme,
+	codeToAnsi,
+} from "../core/highlight.js";
 import type { ReviewHunk } from "./git.js";
-
-type BundledLanguage = Parameters<typeof codeToANSI>[1];
-type BundledTheme = Parameters<typeof codeToANSI>[2];
 
 export interface ReviewHunkPreviewInput {
 	hunk: ReviewHunk;
@@ -214,7 +215,7 @@ const EXT_LANG: Record<string, BundledLanguage> = {
 	vue: "vue",
 };
 
-codeToANSI("", "typescript", THEME).catch(() => {});
+codeToAnsi("", "typescript", THEME).catch(() => {});
 const highlightCache = new Map<string, string[]>();
 
 export async function renderReviewHunkPreview(input: ReviewHunkPreviewInput): Promise<string> {
@@ -350,11 +351,7 @@ function autoDeriveBgFromTheme(theme: any): void {
 
 function loadDiffConfig(): DiffUserConfig {
 	const home = process.env.HOME ?? "";
-	const paths = [
-		`${process.cwd()}/.pi/settings.json`,
-		`${home}/.pi/agent/settings.json`,
-		`${home}/.pi/settings.json`,
-	];
+	const paths = [`${process.cwd()}/.pi/settings.json`, `${home}/.pi/agent/settings.json`, `${home}/.pi/settings.json`];
 	for (const path of paths) {
 		try {
 			if (existsSync(path)) {
@@ -721,7 +718,7 @@ async function hlBlock(code: string, language: BundledLanguage | undefined): Pro
 	const cached = highlightCache.get(key);
 	if (cached) return touchCache(key, cached);
 	try {
-		const ansi = normalizeShikiContrast(await codeToANSI(code, language, THEME));
+		const ansi = normalizeShikiContrast(await codeToAnsi(code, language, THEME));
 		const output = (ansi.endsWith("\n") ? ansi.slice(0, -1) : ansi).split("\n");
 		return touchCache(key, output);
 	} catch {

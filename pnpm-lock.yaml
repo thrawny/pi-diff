@@ -9,20 +9,26 @@ importers:
   .:
     dependencies:
       '@earendil-works/pi-coding-agent':
-        specifier: ^0.79.0
-        version: 0.79.10(ws@8.21.0)(zod@4.4.3)
+        specifier: ^0.80.0
+        version: 0.80.10(ws@8.21.0)(zod@4.4.3)
       '@earendil-works/pi-tui':
-        specifier: ^0.79.0
-        version: 0.79.10
-      '@heyhuynhgiabuu/pi-diff':
-        specifier: 0.6.4
-        version: 0.6.4(ws@8.21.0)(zod@4.4.3)
-      '@shikijs/cli':
+        specifier: ^0.80.0
+        version: 0.80.10
+      '@shikijs/langs':
+        specifier: ^4.0.2
+        version: 4.3.0
+      '@shikijs/themes':
         specifier: ^4.0.2
         version: 4.3.0
       diff:
         specifier: ^7.0.0
         version: 7.0.0
+      shiki:
+        specifier: ^4.0.2
+        version: 4.3.0
+      xxhash-wasm:
+        specifier: ^1.1.0
+        version: 1.1.0
     devDependencies:
       '@biomejs/biome':
         specifier: ^2.3.5
@@ -213,22 +219,22 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@earendil-works/pi-agent-core@0.79.10':
-    resolution: {integrity: sha512-XKxgdjhcPuyjrthCOFSgfzT3xZ1uBrJ1IMVDxci1to6hIN6BIg9J5iY8q0pGXK1DLgATLP23da+1UyZLwA360Q==}
+  '@earendil-works/pi-agent-core@0.80.10':
+    resolution: {integrity: sha512-nwnOR3SuLYGRFfyQm8ri4Nj5VGVAvAM9GuqQd3u7BUQj0d6hmD2F8w7OHAAjThE3CuySIdM+v8E22QJG6/RfCg==}
     engines: {node: '>=22.19.0'}
 
-  '@earendil-works/pi-ai@0.79.10':
-    resolution: {integrity: sha512-9jR23tOl0BIUdQMn70Gr72xYBpM7Xgl9Lyv7gAnU1USfkNRuYG/f/edLl+n/Dp/RafDW3JI4DF7y/GhgkORuew==}
-    engines: {node: '>=22.19.0'}
-    hasBin: true
-
-  '@earendil-works/pi-coding-agent@0.79.10':
-    resolution: {integrity: sha512-YxaRhmgyDTvLDdGVbe7YzTHV80oL5mX5odg6EhGHz3w5Wu1Ix8DCw7bhtiOBLGQNFRcknia0zPmVWIj30XP1EA==}
+  '@earendil-works/pi-ai@0.80.10':
+    resolution: {integrity: sha512-Moe/H8c87yacDGK9dPbWphZNjVsrb3nTrIHycOQJAkFEnY9PYxOOd74+ny44kATfPU9Dm7aTHefar3pZF+UKUA==}
     engines: {node: '>=22.19.0'}
     hasBin: true
 
-  '@earendil-works/pi-tui@0.79.10':
-    resolution: {integrity: sha512-FUVOjDn1DVwM1uHD5MNYboXQrXjIDbSt+BQ3py7nQWCY62tKfxgiM1OBMxTcwRWLfSdZHUPpV0hm1loIdUJnPw==}
+  '@earendil-works/pi-coding-agent@0.80.10':
+    resolution: {integrity: sha512-aL4apbupCHiVLSXASXvRzH4Q2vmtfrDa+0s909CJuVu/GgGylbDzr7oyF1mPmip5E+VxYYxKWmph4hV04wUcQg==}
+    engines: {node: '>=22.19.0'}
+    hasBin: true
+
+  '@earendil-works/pi-tui@0.80.10':
+    resolution: {integrity: sha512-c2JO29PbhKPEQ6fgHQKAl0WhwuFqzWfzspMmP+8B5tpDuP+0mvarRbKKg8gq4b+pQx/QX+6aVS4ko7deoyjQjg==}
     engines: {node: '>=22.19.0'}
 
   '@emnapi/core@1.11.1':
@@ -248,10 +254,6 @@ packages:
     peerDependenciesMeta:
       '@modelcontextprotocol/sdk':
         optional: true
-
-  '@heyhuynhgiabuu/pi-diff@0.6.4':
-    resolution: {integrity: sha512-fWro8MX0UstjeixetpsJy6DRqBQYy4B8ui1a0kOZqa/39KOdcsSOLM/xRD/rpKy/Xgs9qrYyJVdkjjD9Z9ihAw==}
-    hasBin: true
 
   '@jridgewell/sourcemap-codec@1.5.5':
     resolution: {integrity: sha512-cYQ9310grqxueWbl+WuIUIaiUaDcj7WOq5fVhEljNVgRfOUhY9fy2zTvfoqWsnebh8Sl70VScFbICvJnLKB0Og==}
@@ -474,11 +476,6 @@ packages:
   '@rolldown/pluginutils@1.0.1':
     resolution: {integrity: sha512-2j9bGt5Jh8hj+vPtgzPtl72j0yRxHAyumoo6TNfAjsLB04UtpSvPbPcDcBMxz7n+9CYB0c1GxQFxYRg2jimqGw==}
 
-  '@shikijs/cli@4.3.0':
-    resolution: {integrity: sha512-On4JSevjRHpFFix8Dh/2BWk3xwXL9u0PRl33Gy/Ho5l2pQlgnIZ+8jXLDYp/Qq8S6lOookd/+ZUu4ihIy2tWBQ==}
-    engines: {node: '>=20'}
-    hasBin: true
-
   '@shikijs/core@4.3.0':
     resolution: {integrity: sha512-EooU3i9F6IAE8kEu+AnGf9DFZWkQBZ+hJn3tLVbsH+61mtQiva5biai66fAA6nvFPXkLgvrh7BrR7YcJU83xQQ==}
     engines: {node: '>=20'}
@@ -622,10 +619,6 @@ packages:
     resolution: {integrity: sha512-MnA+YT8fwfJPgBx3m60MNqakm30XOkyIoH1y6huTQvC0PwZG7ki8NacLBcrPbNoo8vEZy7Jpuk7+jMO+CUovTQ==}
     engines: {node: '>= 14'}
 
-  ansis@4.3.1:
-    resolution: {integrity: sha512-BJ8/l4R5LRE7hW9WdSuGYrLSHi2ynxeFpDFbH0K/CgNeY/tyhk+vO6TYxXC5r5CpUhNVX310xzPsN/H9lCdfOA==}
-    engines: {node: '>=14'}
-
   assertion-error@2.0.1:
     resolution: {integrity: sha512-Izi8RQcffqCeNVgFigKli1ssklIbpHnCYc6AknXGYoB6grJqyeby7jv12JUQgmTAnIDnbck1uxksT4dzN3PWBA==}
     engines: {node: '>=12'}
@@ -649,10 +642,6 @@ packages:
 
   buffer-equal-constant-time@1.0.1:
     resolution: {integrity: sha512-zRpUiDwd/xk6ADqPMATG8vc9VPrkck7T07OIx0gnjmJAnHnTVXNQG3vfvWNuiZIkwu9KrKdA1iJKfsfTVxE6NA==}
-
-  cac@7.0.0:
-    resolution: {integrity: sha512-tixWYgm5ZoOD+3g6UTea91eow5z6AAHaho3g0V9CNSNb45gM8SmflpAc+GRd1InC4AqN/07Unrgp56Y94N9hJQ==}
-    engines: {node: '>=20.19.0'}
 
   ccount@2.0.1:
     resolution: {integrity: sha512-eyrF0jiFpY+3drT6383f1qhkbGsLSifNAjA61IUjZjmLCWjItY6LB9ft9YhoDgwfmclB2zhu51Lc7+95b8NRAg==}
@@ -1253,6 +1242,9 @@ packages:
       utf-8-validate:
         optional: true
 
+  xxhash-wasm@1.1.0:
+    resolution: {integrity: sha512-147y/6YNh+tlp6nd/2pWq38i9h6mz/EuQ6njIrmW8D1BS5nCqs0P6DG+m6zTGnNz5I+uhZ0SHxBs9BsPrwcKDA==}
+
   yaml@2.9.0:
     resolution: {integrity: sha512-2AvhNX3mb8zd6Zy7INTtSpl1F15HW6Wnqj0srWlkKLcpYl/gMIMJiyuGq2KeI2YFxUPjdlB+3Lc10seMLtL4cA==}
     engines: {node: '>= 14.6'}
@@ -1322,7 +1314,7 @@ snapshots:
       '@aws-sdk/types': 3.973.13
       '@smithy/core': 3.26.0
       '@smithy/fetch-http-handler': 5.5.2
-      '@smithy/node-http-handler': 4.7.3
+      '@smithy/node-http-handler': 4.8.2
       '@smithy/types': 4.15.0
       tslib: 2.8.1
 
@@ -1536,9 +1528,9 @@ snapshots:
   '@biomejs/cli-win32-x64@2.5.1':
     optional: true
 
-  '@earendil-works/pi-agent-core@0.79.10(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-agent-core@0.80.10(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-ai': 0.79.10(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.10(ws@8.21.0)(zod@4.4.3)
       ignore: 7.0.5
       typebox: 1.1.38
       yaml: 2.9.0
@@ -1550,7 +1542,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-ai@0.79.10(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-ai@0.80.10(ws@8.21.0)(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.91.1(zod@4.4.3)
       '@aws-sdk/client-bedrock-runtime': 3.1048.0
@@ -1571,11 +1563,11 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-coding-agent@0.79.10(ws@8.21.0)(zod@4.4.3)':
+  '@earendil-works/pi-coding-agent@0.80.10(ws@8.21.0)(zod@4.4.3)':
     dependencies:
-      '@earendil-works/pi-agent-core': 0.79.10(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-ai': 0.79.10(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui': 0.79.10
+      '@earendil-works/pi-agent-core': 0.80.10(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-ai': 0.80.10(ws@8.21.0)(zod@4.4.3)
+      '@earendil-works/pi-tui': 0.80.10
       '@silvia-odwyer/photon-node': 0.3.4
       chalk: 5.6.2
       cross-spawn: 7.0.6
@@ -1601,7 +1593,7 @@ snapshots:
       - ws
       - zod
 
-  '@earendil-works/pi-tui@0.79.10':
+  '@earendil-works/pi-tui@0.80.10':
     dependencies:
       get-east-asian-width: 1.6.0
       marked: 18.0.5
@@ -1632,20 +1624,6 @@ snapshots:
       - bufferutil
       - supports-color
       - utf-8-validate
-
-  '@heyhuynhgiabuu/pi-diff@0.6.4(ws@8.21.0)(zod@4.4.3)':
-    dependencies:
-      '@earendil-works/pi-coding-agent': 0.79.10(ws@8.21.0)(zod@4.4.3)
-      '@earendil-works/pi-tui': 0.79.10
-      '@shikijs/cli': 4.3.0
-      diff: 7.0.0
-    transitivePeerDependencies:
-      - '@modelcontextprotocol/sdk'
-      - bufferutil
-      - supports-color
-      - utf-8-validate
-      - ws
-      - zod
 
   '@jridgewell/sourcemap-codec@1.5.5': {}
 
@@ -1788,13 +1766,6 @@ snapshots:
     optional: true
 
   '@rolldown/pluginutils@1.0.1': {}
-
-  '@shikijs/cli@4.3.0':
-    dependencies:
-      '@shikijs/vscode-textmate': 10.0.2
-      ansis: 4.3.1
-      cac: 7.0.0
-      shiki: 4.3.0
 
   '@shikijs/core@4.3.0':
     dependencies:
@@ -1971,8 +1942,6 @@ snapshots:
 
   agent-base@7.1.4: {}
 
-  ansis@4.3.1: {}
-
   assertion-error@2.0.1: {}
 
   balanced-match@4.0.4: {}
@@ -1988,8 +1957,6 @@ snapshots:
       balanced-match: 4.0.4
 
   buffer-equal-constant-time@1.0.1: {}
-
-  cac@7.0.0: {}
 
   ccount@2.0.1: {}
 
@@ -2517,6 +2484,8 @@ snapshots:
       stackback: 0.0.2
 
   ws@8.21.0: {}
+
+  xxhash-wasm@1.1.0: {}
 
   yaml@2.9.0: {}
 

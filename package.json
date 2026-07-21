@@ -42,8 +42,10 @@
 	"dependencies": {
 		"@earendil-works/pi-coding-agent": "^0.80.0",
 		"@earendil-works/pi-tui": "^0.80.0",
-		"@shikijs/cli": "^4.0.2",
+		"@shikijs/langs": "^4.0.2",
+		"@shikijs/themes": "^4.0.2",
 		"diff": "^7.0.0",
+		"shiki": "^4.0.2",
 		"xxhash-wasm": "^1.1.0"
 	},
 	"devDependencies": {

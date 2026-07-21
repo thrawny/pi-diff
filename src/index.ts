@@ -25,7 +25,6 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, relative } from "node:path";
 import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 import type { Component } from "@earendil-works/pi-tui";
-import { codeToANSI } from "@shikijs/cli";
 import * as Diff from "diff";
 import { type ApplyPatchChange, executeApplyPatch, formatApplyPatchResult } from "./core/apply-patch.js";
 import { configIndicatorStyle, loadPiDiffConfig, type PiDiffToolName } from "./core/config.js";
@@ -40,6 +39,11 @@ import {
 	sepLabelSplit,
 	sepLabelUnified,
 } from "./core/diff.js";
+import {
+	type ShikiLanguage as BundledLanguage,
+	type ShikiTheme as BundledTheme,
+	codeToAnsi,
+} from "./core/highlight.js";
 import { replace } from "./core/replace.js";
 import { registerEditGuard } from "./edit-guard.js";
 
@@ -50,9 +54,6 @@ import {
 	resolveDiffColors as resolveSharedDiffColors,
 	themeCacheKey as sharedThemeCacheKey,
 } from "./review/hunk-preview.js";
-
-type BundledLanguage = Parameters<typeof codeToANSI>[1];
-type BundledTheme = Parameters<typeof codeToANSI>[2];
 
 /** Simplified Pi theme — only methods pi-diff actually calls. */
 interface PiTheme {
@@ -306,11 +307,7 @@ function autoDeriveBgFromTheme(theme: PiTheme): void {
 /** Load diff theme config from .pi/settings.json (project-level, then global). */
 function loadDiffConfig(): DiffUserConfig {
 	const home = process.env.HOME ?? "";
-	const paths = [
-		`${process.cwd()}/.pi/settings.json`,
-		`${home}/.pi/agent/settings.json`,
-		`${home}/.pi/settings.json`,
-	];
+	const paths = [`${process.cwd()}/.pi/settings.json`, `${home}/.pi/agent/settings.json`, `${home}/.pi/settings.json`];
 	for (const p of paths) {
 		try {
 			if (existsSync(p)) {
@@ -909,7 +906,7 @@ function lang(fp: string): BundledLanguage | undefined {
 
 // Pre-warm the Shiki singleton (loads WASM grammars + theme) so the first
 // diff render doesn't pay the ~200-500ms startup cost.
-codeToANSI("", "typescript", THEME).catch(() => {});
+codeToAnsi("", "typescript", THEME).catch(() => {});
 
 const _cache = new Map<string, string[]>();
 
@@ -933,7 +930,7 @@ async function hlBlock(code: string, language: BundledLanguage | undefined): Pro
 	if (hit) return _touch(k, hit);
 
 	try {
-		const ansi = normalizeShikiContrast(await codeToANSI(code, language, THEME));
+		const ansi = normalizeShikiContrast(await codeToAnsi(code, language, THEME));
 		const out = (ansi.endsWith("\n") ? ansi.slice(0, -1) : ansi).split("\n");
 		return _touch(k, out);
 	} catch {

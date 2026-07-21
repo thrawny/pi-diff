@@ -4,6 +4,18 @@ All notable changes to `@heyhuynhgiabuu/pi-diff` are documented here.
 The format is based on [Keep a Changelog](https://keepachangelog.com/),
 and this project adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.6] — 2026-07-21
+
+### Added
+
+- **Tool configuration** — `pi-diff.json` now supports `disabledTools`, allowing users to omit `write`, `edit`, or `apply_patch`. Disabled `write` and `edit` use Pi's built-ins; disabled `apply_patch` is unavailable.
+
+### Fixed
+
+- **`apply_patch` safety** — preflight all changes, reject clobbering or unsafe source matches, preserve file modes and CRLF, and roll back committed changes if a later commit fails.
+- **`apply_patch` errors** — failed patch results use the theme error foreground as well as the error background.
+- **Tool output defaults** — Pi's global collapsed-by-default setting now applies to non-pi-diff tools while pi-diff previews remain visible for `write`, `edit`, and `apply_patch`.
+
 ## [0.7.5] — 2026-07-11
 
 ### Changed

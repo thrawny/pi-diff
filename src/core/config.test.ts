@@ -1,7 +1,7 @@
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
 	configColors,
@@ -27,6 +27,23 @@ describe("loadPiDiffConfig", () => {
 	it("returns empty object when no config file exists", () => {
 		const config = loadPiDiffConfig(tmpDir);
 		expect(config).toEqual({});
+	});
+
+	it("prefers project configuration over global configuration", () => {
+		const previousHome = process.env.HOME;
+		const cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
+		process.env.HOME = tmpDir;
+		mkdirSync(join(tmpDir, ".pi", "agent"), { recursive: true });
+		writeFileSync(join(tmpDir, ".pi", "agent", "pi-diff.json"), JSON.stringify({ disabledTools: ["apply_patch"] }));
+		writeFileSync(join(tmpDir, "pi-diff.json"), JSON.stringify({ disabledTools: ["edit"] }));
+
+		try {
+			expect(loadPiDiffConfig().disabledTools).toEqual(["edit"]);
+		} finally {
+			cwdSpy.mockRestore();
+			if (previousHome === undefined) delete process.env.HOME;
+			else process.env.HOME = previousHome;
+		}
 	});
 
 	it("reads from project-level pi-diff.json", () => {
@@ -57,6 +74,14 @@ describe("loadPiDiffConfig", () => {
 		writeFileSync(configPath, JSON.stringify({ fileHeader: false }), "utf-8");
 
 		expect(configFileHeader(tmpDir)).toBe(false);
+	});
+
+	it("keeps only supported disabled tools", () => {
+		const configPath = join(tmpDir, "pi-diff.json");
+		writeFileSync(configPath, JSON.stringify({ disabledTools: ["apply_patch", "bash", "edit"] }), "utf-8");
+
+		const config = loadPiDiffConfig(tmpDir) as { disabledTools?: string[] };
+		expect(config.disabledTools).toEqual(["apply_patch", "edit"]);
 	});
 
 	it("reads color overrides from config", () => {

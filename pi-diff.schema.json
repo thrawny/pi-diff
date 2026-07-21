@@ -5,6 +5,13 @@
 	"description": "Configuration schema for pi-diff — a Shiki-powered terminal diff renderer for pi.",
 	"type": "object",
 	"properties": {
+		"disabledTools": {
+			"description": "pi-diff tools to omit. Disabling write or edit restores Pi's built-in tool.",
+			"type": "array",
+			"items": { "type": "string", "enum": ["write", "edit", "apply_patch"] },
+			"uniqueItems": true,
+			"default": []
+		},
 		"sepStyle": {
 			"description": "How collapsed context between hunks is rendered. Auto shows function context + gap when both available.",
 			"type": "string",

@@ -80,6 +80,18 @@ Both views show:
 
 ## Configuration
 
+### Disable pi-diff tools
+
+Add `disabledTools` to `pi-diff.json` to omit pi-diff tools. Disabling `write` or `edit` leaves Pi's built-in tool available; disabling `apply_patch` removes that custom tool.
+
+```json
+{
+  "disabledTools": ["apply_patch"]
+}
+```
+
+See [CONFIG.md](CONFIG.md) for the full `pi-diff.json` reference.
+
 ### Diff Theme Presets
 
 pi-diff ships with built-in theme presets optimized for different terminal backgrounds. Add to your `.pi/settings.json`:

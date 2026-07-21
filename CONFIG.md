@@ -33,6 +33,20 @@ All other settings use defaults. See the full reference below.
 | `longLines` | `"wrap"` `"scroll"` | `"wrap"` | How lines wider than terminal are handled |
 | `fileHeader` | `boolean` | `true` | Show filename + stats header |
 
+### Tool behavior
+
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `disabledTools` | `("write" | "edit" | "apply_patch")[]` | `[]` | Tools pi-diff does not register. `write` and `edit` fall back to Pi's built-ins; `apply_patch` is unavailable. |
+
+For example, to remove the custom patch tool:
+
+```json
+{
+	"disabledTools": ["apply_patch"]
+}
+```
+
 ### Color
 
 | Option | Type | Default | Description |

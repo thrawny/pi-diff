@@ -570,7 +570,7 @@ function themeCacheKey(theme?: PiTheme): string {
 
 /** Resolve diff fg colors from theme (if available), falling back to hardcoded ANSI.
  *  On first call with a valid theme, auto-derives bg colors if no explicit config was set.
- *  Always reads toolSuccessBg for BG_BASE (used for context/add line backgrounds). */
+ *  Reads toolSuccessBg for BG_BASE only when no explicit bg config was set. */
 function resolveDiffColors(theme?: PiTheme): DiffColors {
 	const currentThemeKey = themeCacheKey(theme);
 	if (!_hasExplicitBgConfig && _lastResolvedThemeKey && _lastResolvedThemeKey !== currentThemeKey) {
@@ -579,8 +579,8 @@ function resolveDiffColors(theme?: PiTheme): DiffColors {
 		_autoDerivePending = true;
 	}
 	_lastResolvedThemeKey = currentThemeKey;
-	// Always read toolSuccessBg for BG_BASE (even with explicit config)
-	if (theme?.getBgAnsi && BG_BASE === BG_DEFAULT) {
+	// Only read toolSuccessBg for BG_BASE when explicit diff backgrounds are not configured.
+	if (!_hasExplicitBgConfig && theme?.getBgAnsi && BG_BASE === BG_DEFAULT) {
 		try {
 			const bgAnsi = theme.getBgAnsi("toolSuccessBg");
 			const parsed = parseAnsiRgb(bgAnsi);

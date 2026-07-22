@@ -1461,15 +1461,20 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	}
 
 	function clearToolHeaderBg(text: any) {
-		text.customBgFn = undefined;
+		// Do not remove the custom background entirely: Pi's default tool-state
+		// background can otherwise show through as green bands around hidden or
+		// compact pi-diff tool output.
+		setToolHeaderBg(text);
 	}
 
 	function setToolErrorBg(text: any, theme: PiTheme) {
 		let background = BG_BASE;
-		try {
-			background = theme.getBgAnsi?.("toolErrorBg") ?? BG_BASE;
-		} catch {
-			// Use the regular tool background when the theme has no error background.
+		if (!_hasExplicitBgConfig) {
+			try {
+				background = theme.getBgAnsi?.("toolErrorBg") ?? BG_BASE;
+			} catch {
+				// Use the regular tool background when the theme has no error background.
+			}
 		}
 		text.customBgFn = (line: string) => injectBg(line, [], background, background);
 	}

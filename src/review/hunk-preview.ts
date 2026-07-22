@@ -1,8 +1,7 @@
-import { existsSync, readFileSync } from "node:fs";
 import { extname } from "node:path";
 
 import * as Diff from "diff";
-import { configIndicatorStyle } from "../core/config.js";
+import { configIndicatorStyle, type DiffView, loadPiSettingsDiffConfig } from "../core/config.js";
 import { getSepStyle, type ParsedDiff, sepLabelSplit, sepLabelUnified } from "../core/diff.js";
 import {
 	type ShikiLanguage as BundledLanguage,
@@ -39,14 +38,6 @@ interface DiffPreset {
 	fgRule?: string;
 	fgStripe?: string;
 	fgSafeMuted?: string;
-}
-
-type DiffView = "auto" | "unified";
-
-interface DiffUserConfig {
-	diffTheme?: string;
-	diffColors?: Record<string, string>;
-	diffView?: DiffView;
 }
 
 interface DiffColors {
@@ -349,24 +340,8 @@ function autoDeriveBgFromTheme(theme: any): void {
 	} catch {}
 }
 
-function loadDiffConfig(): DiffUserConfig {
-	const home = process.env.HOME ?? "";
-	const paths = [`${process.cwd()}/.pi/settings.json`, `${home}/.pi/agent/settings.json`, `${home}/.pi/settings.json`];
-	for (const path of paths) {
-		try {
-			if (existsSync(path)) {
-				const raw = JSON.parse(readFileSync(path, "utf-8"));
-				if (raw.diffTheme || raw.diffColors || raw.diffView) {
-					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors, diffView: raw.diffView };
-				}
-			}
-		} catch {}
-	}
-	return {};
-}
-
 export function applyDiffPalette(): void {
-	const config = loadDiffConfig();
+	const config = loadPiSettingsDiffConfig();
 	if (config.diffView) DIFF_VIEW = config.diffView;
 	const preset = config.diffTheme ? DIFF_PRESETS[config.diffTheme] : null;
 	if (preset) _hasExplicitBgConfig = true;

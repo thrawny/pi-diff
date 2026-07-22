@@ -23,6 +23,13 @@ import { join } from "node:path";
 
 export const PI_DIFF_TOOL_NAMES = ["write", "edit", "apply_patch"] as const;
 export type PiDiffToolName = (typeof PI_DIFF_TOOL_NAMES)[number];
+export type DiffView = "auto" | "unified";
+
+export interface PiSettingsDiffConfig {
+	diffTheme?: string;
+	diffColors?: Record<string, string>;
+	diffView?: DiffView;
+}
 
 /**
  * Full pi-diff.json schema.
@@ -69,6 +76,7 @@ export interface PiDiffJson {
 // ---------------------------------------------------------------------------
 
 let _cachedConfig: PiDiffJson | null | undefined; // null = not loaded, undefined = attempted/no-file
+let _cachedPiSettingsDiffConfig: PiSettingsDiffConfig | null | undefined;
 
 /**
  * Load pi-diff.json from project or global paths.
@@ -128,6 +136,7 @@ export function loadPiDiffConfig(cwd?: string): PiDiffJson {
  */
 export function invalidatePiDiffConfig(): void {
 	_cachedConfig = undefined;
+	_cachedPiSettingsDiffConfig = undefined;
 }
 
 /**
@@ -145,6 +154,63 @@ function deepMerge(a: PiDiffJson, b: PiDiffJson): PiDiffJson {
 		}
 	}
 	return result;
+}
+
+// ---------------------------------------------------------------------------
+// Pi settings diff config — diffTheme/diffColors/diffView from settings.json
+// ---------------------------------------------------------------------------
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function readPiSettingsDiffConfig(filePath: string): PiSettingsDiffConfig | null {
+	try {
+		if (!existsSync(filePath)) return null;
+		const raw = JSON.parse(readFileSync(filePath, "utf-8")) as unknown;
+		if (!isRecord(raw)) return null;
+
+		const config: PiSettingsDiffConfig = {};
+		if (typeof raw.diffTheme === "string") config.diffTheme = raw.diffTheme;
+		if (raw.diffView === "auto" || raw.diffView === "unified") config.diffView = raw.diffView;
+		if (isRecord(raw.diffColors)) {
+			const colors: Record<string, string> = {};
+			for (const [key, value] of Object.entries(raw.diffColors)) {
+				if (typeof value === "string") colors[key] = value;
+			}
+			if (Object.keys(colors).length > 0) config.diffColors = colors;
+		}
+		return Object.keys(config).length > 0 ? config : null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Load diff rendering config from Pi's settings.json files.
+ * Lookup order is project settings, Pi's user settings, then the older ~/.pi/settings.json fallback.
+ */
+export function loadPiSettingsDiffConfig(
+	cwd = process.cwd(),
+	home = process.env.HOME ?? homedir(),
+): PiSettingsDiffConfig {
+	if (_cachedPiSettingsDiffConfig !== undefined) return _cachedPiSettingsDiffConfig ?? {};
+
+	const paths = [
+		join(cwd, ".pi", "settings.json"),
+		join(home, ".pi", "agent", "settings.json"),
+		join(home, ".pi", "settings.json"),
+	];
+	for (const filePath of paths) {
+		const config = readPiSettingsDiffConfig(filePath);
+		if (config) {
+			_cachedPiSettingsDiffConfig = config;
+			return config;
+		}
+	}
+
+	_cachedPiSettingsDiffConfig = null;
+	return {};
 }
 
 // ---------------------------------------------------------------------------

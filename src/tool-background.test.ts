@@ -77,4 +77,39 @@ describe("diff preview backgrounds", () => {
 
 		expectExplicitBackground(text);
 	});
+
+	it("uses explicit bgEmpty for apply_patch error output instead of tool-state backgrounds", async () => {
+		let applyPatchTool: any;
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				if (tool.name === "apply_patch") applyPatchTool = tool;
+			},
+		} as never);
+
+		const text = applyPatchTool.renderResult(
+			{ content: [{ type: "text", text: "Failed 1 change(s):" }], isError: true },
+			{},
+			theme,
+			{ isError: true, state: {}, invalidate: () => {} },
+		);
+
+		expectExplicitBackground(text);
+	});
+
+	it("keeps a neutral background when apply_patch call output is hidden", async () => {
+		let applyPatchTool: any;
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				if (tool.name === "apply_patch") applyPatchTool = tool;
+			},
+		} as never);
+
+		const text = applyPatchTool.renderCall(
+			{ changes: [{ path: join(tempDir, "file.ts"), action: "update", oldText: "a", newText: "b" }] },
+			theme,
+			{ argsComplete: true, state: {}, invalidate: () => {} },
+		);
+
+		expectExplicitBackground(text);
+	});
 });

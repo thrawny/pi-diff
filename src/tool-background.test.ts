@@ -90,10 +90,11 @@ describe("diff preview backgrounds", () => {
 			{ content: [{ type: "text", text: "Failed 1 change(s):" }], isError: true },
 			{},
 			theme,
-			{ isError: true, state: {}, invalidate: () => {} },
+			{ isError: false, state: {}, invalidate: () => {} },
 		);
 
 		expectExplicitBackground(text);
+		expect(text.render(120).join("\n")).toContain("← apply_patch");
 	});
 
 	it("keeps a neutral background when apply_patch call output is hidden", async () => {

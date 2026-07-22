@@ -1740,7 +1740,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			compactGutter?: boolean;
 		},
 	): void {
-		clearToolHeaderBg(text);
+		setToolHeaderBg(text);
 		const themeKey = sharedThemeCacheKey(theme);
 		const colors = resolvePreviewDiffColors(theme);
 		const header = frame?.omitHeader

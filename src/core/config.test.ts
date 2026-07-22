@@ -10,6 +10,7 @@ import {
 	configSepStyle,
 	invalidatePiDiffConfig,
 	loadPiDiffConfig,
+	loadPiSettingsDiffConfig,
 } from "./config.js";
 
 describe("loadPiDiffConfig", () => {
@@ -106,6 +107,37 @@ describe("loadPiDiffConfig", () => {
 
 		const config = loadPiDiffConfig(tmpDir);
 		expect(config).toEqual({});
+	});
+
+	it("reads diff config from Pi agent settings with legacy fallback", () => {
+		mkdirSync(join(tmpDir, ".pi", "agent"), { recursive: true });
+		writeFileSync(join(tmpDir, ".pi", "settings.json"), JSON.stringify({ diffTheme: "project" }), "utf-8");
+		writeFileSync(join(tmpDir, ".pi", "agent", "settings.json"), JSON.stringify({ diffTheme: "agent" }), "utf-8");
+
+		expect(loadPiSettingsDiffConfig(tmpDir, tmpDir)).toEqual({ diffTheme: "project" });
+
+		invalidatePiDiffConfig();
+		writeFileSync(join(tmpDir, ".pi", "settings.json"), JSON.stringify({}), "utf-8");
+		expect(loadPiSettingsDiffConfig(tmpDir, tmpDir)).toEqual({ diffTheme: "agent" });
+	});
+
+	it("normalizes diff settings values", () => {
+		mkdirSync(join(tmpDir, ".pi"), { recursive: true });
+		writeFileSync(
+			join(tmpDir, ".pi", "settings.json"),
+			JSON.stringify({
+				diffTheme: "subtle",
+				diffView: "unified",
+				diffColors: { bgEmpty: "#222222", ignored: 123 },
+			}),
+			"utf-8",
+		);
+
+		expect(loadPiSettingsDiffConfig(tmpDir, tmpDir)).toEqual({
+			diffTheme: "subtle",
+			diffView: "unified",
+			diffColors: { bgEmpty: "#222222" },
+		});
 	});
 
 	it("caches the result across calls", () => {

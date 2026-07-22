@@ -34,7 +34,13 @@ import {
 	formatApplyPatchResult,
 	parseApplyPatchInput,
 } from "./core/apply-patch.js";
-import { configIndicatorStyle, loadPiDiffConfig, type PiDiffToolName } from "./core/config.js";
+import {
+	configIndicatorStyle,
+	type DiffView,
+	loadPiDiffConfig,
+	loadPiSettingsDiffConfig,
+	type PiDiffToolName,
+} from "./core/config.js";
 import {
 	computeHunkBlocks,
 	type DiffLine,
@@ -113,15 +119,6 @@ interface DiffPreset {
 	fgRule?: string;
 	fgStripe?: string;
 	fgSafeMuted?: string;
-}
-
-type DiffView = "auto" | "unified";
-
-/** User diff config read from .pi/settings.json */
-interface DiffUserConfig {
-	diffTheme?: string;
-	diffColors?: Record<string, string>;
-	diffView?: DiffView;
 }
 
 const DIFF_PRESETS: Record<string, DiffPreset> = {
@@ -309,29 +306,10 @@ function autoDeriveBgFromTheme(theme: PiTheme): void {
 	}
 }
 
-/** Load diff theme config from .pi/settings.json (project-level, then global). */
-function loadDiffConfig(): DiffUserConfig {
-	const home = process.env.HOME ?? "";
-	const paths = [`${process.cwd()}/.pi/settings.json`, `${home}/.pi/agent/settings.json`, `${home}/.pi/settings.json`];
-	for (const p of paths) {
-		try {
-			if (existsSync(p)) {
-				const raw = JSON.parse(readFileSync(p, "utf-8"));
-				if (raw.diffTheme || raw.diffColors || raw.diffView) {
-					return { diffTheme: raw.diffTheme, diffColors: raw.diffColors, diffView: raw.diffView };
-				}
-			}
-		} catch {
-			// skip invalid files
-		}
-	}
-	return {};
-}
-
 /** Apply diff palette from settings → preset → (auto-derive deferred) → defaults.
  *  Called once during extension initialization. */
 function applyDiffPalette(): void {
-	const config = loadDiffConfig();
+	const config = loadPiSettingsDiffConfig();
 	if (config.diffView) DIFF_VIEW = config.diffView;
 
 	// Load preset if specified

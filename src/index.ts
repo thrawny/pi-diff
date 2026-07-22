@@ -2258,7 +2258,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 
 		renderResult(result: any, _opt: any, theme: any, ctx: any) {
 			const text = getWidthAwareText(ctx.lastComponent);
-			if (ctx.isError) {
+			if (isToolResultError(result, ctx)) {
 				const e =
 					result.content
 						?.filter((c: { type: string; text?: string }) => c.type === "text")
@@ -2379,7 +2379,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		},
 		renderResult(result: any, _opt: any, theme: any, ctx: any) {
 			const text = getWidthAwareText(ctx.lastComponent);
-			if (ctx.isError) {
+			if (isToolResultError(result, ctx)) {
 				const out = (result.content || []).map((c: any) => c.text).join("\n") || "Error";
 				text.__piDiffTask = undefined;
 				setToolErrorBg(text, theme);

@@ -1525,7 +1525,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			const change = previewable[0] as any;
 
 			if (change.action === "add" && typeof change.newContent === "string") {
-				clearToolHeaderBg(text);
+				setToolHeaderBg(text);
 				resolvePreviewDiffColors(theme);
 				const lineCount = change.newContent.split("\n").length;
 				const newHdr = bgLine(`${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, w);
@@ -1913,7 +1913,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 						})
 						.catch(() => {});
 				}
-				clearToolHeaderBg(text);
+				setToolHeaderBg(text);
 				text.setText(ctx.state._previewText ?? title);
 				return text;
 			}
@@ -1954,7 +1954,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			}
 			if (d?._type === "new") {
 				const { lines: lineCount, content: rawContent, filePath: fp } = d;
-				clearToolHeaderBg(text);
+				setToolHeaderBg(text);
 				resolvePreviewDiffColors(theme);
 				const w = termW();
 				const newHdr = bgLine(`${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, w);

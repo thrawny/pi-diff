@@ -1378,6 +1378,7 @@ export const __testing = {
 export default async function diffRendererExtension(pi: ExtensionAPI): Promise<void> {
 	// Apply diff theme palette from settings/presets before rendering
 	applySharedDiffPalette();
+	applyDiffPalette();
 	// Resolve hunk separator style from env var
 	resolveSepStyle();
 

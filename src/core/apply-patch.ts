@@ -311,7 +311,7 @@ export function formatApplyPatchResult(result: ApplyPatchResult): string {
 	}
 
 	if (result.errors.length > 0) {
-		lines.push(`\nFailed ${result.errors.length} change(s):`);
+		lines.push(`${lines.length > 0 ? "\n" : ""}Failed ${result.errors.length} change(s):`);
 		for (const err of result.errors) {
 			lines.push(`  [${err.action}] ${err.path}: ${err.error}`);
 		}

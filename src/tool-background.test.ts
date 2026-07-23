@@ -65,6 +65,16 @@ describe("diff preview backgrounds", () => {
 			},
 		} as never);
 
+		const callText = writeTool.renderCall({ path: "created.ts", content: "const value = 1;\n" }, theme, {
+			argsComplete: false,
+			state: {},
+			invalidate: () => {},
+		});
+		const callLines = callText.render(196);
+		expect(callLines).toHaveLength(3);
+		expect(callLines[0]).toContain("\x1b[48;2;34;34;34m");
+		expect(callLines[1]).toContain("← create");
+
 		const text = writeTool.renderResult(
 			{
 				details: { _type: "new", lines: 1, content: "const value = 1;\n", filePath: "created.ts" },

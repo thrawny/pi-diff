@@ -160,8 +160,9 @@ describe("diff preview backgrounds", () => {
 
 		expectExplicitBackground(text);
 		const errorLines = text.render(196);
-		expect(errorLines[0]).toContain("← apply_patch");
-		expect(stripAnsi(errorLines[1])).toContain("Failed 1 change(s)");
+		expectNeutralBlankLine(errorLines[0]);
+		expect(errorLines[1]).toContain("← apply_patch");
+		expect(stripAnsi(errorLines[2])).toContain("Failed 1 change(s)");
 
 		await expect(
 			applyPatchTool.execute("failing-patch", {
@@ -190,8 +191,9 @@ describe("diff preview backgrounds", () => {
 		});
 		const lines = (await text.__piDiffTask.render(196)).split("\n");
 
-		expect(stripAnsi(lines[0])).toContain("← apply_patch");
-		expect(stripAnsi(lines[1]).trim()).not.toBe("");
+		expectNeutralBlankLine(lines[0]);
+		expect(stripAnsi(lines[1])).toContain("← apply_patch");
+		expect(stripAnsi(lines[2]).trim()).not.toBe("");
 		expectNeutralBlankLine(lines.at(-1) ?? "");
 	});
 
@@ -203,12 +205,24 @@ describe("diff preview backgrounds", () => {
 			},
 		} as never);
 
-		const text = applyPatchTool.renderCall(
-			{ changes: [{ path: join(tempDir, "file.ts"), action: "update", oldText: "a", newText: "b" }] },
-			theme,
-			{ argsComplete: true, state: {}, invalidate: () => {} },
-		);
+		const args = {
+			changes: [{ path: join(tempDir, "file.ts"), action: "update", oldText: "a", newText: "b" }],
+		};
+		const pendingText = applyPatchTool.renderCall(args, theme, {
+			argsComplete: false,
+			state: {},
+			invalidate: () => {},
+		});
+		const pendingLines = pendingText.render(196);
+		expectNeutralBlankLine(pendingLines[0]);
+		expect(pendingLines[1]).toContain("← apply_patch");
+		expect(pendingLines).toHaveLength(2);
 
+		const text = applyPatchTool.renderCall(args, theme, {
+			argsComplete: true,
+			state: {},
+			invalidate: () => {},
+		});
 		expect(text.render(196)).toEqual([]);
 	});
 });

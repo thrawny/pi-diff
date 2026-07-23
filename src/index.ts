@@ -1422,6 +1422,11 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		bottomPad: 0,
 		previewBottomPad: 1,
 	} as const;
+	const APPLY_PATCH_FRAME = {
+		topPad: 1,
+		headerBottomPad: 0,
+		previewBottomPad: 1,
+	} as const;
 	function resolvePreviewDiffColors(theme: any): DiffColors {
 		resolveDiffColors(theme);
 		return resolveSharedDiffColors(theme);
@@ -1486,9 +1491,9 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		text.customBgFn = (line: string) => injectBg(line, [], background, background);
 	}
 
-	function formatToolErrorResult(name: string, message: string, theme: any): string {
+	function formatToolErrorResult(name: string, message: string, theme: any, topPad = 0): string {
 		const meta = theme.fg("error", theme.bold(formatToolHeaderName(name)));
-		const header = formatToolFrameHeaderText({ meta, theme, headerLeftPad: 1, topPad: 0, bottomPad: 0 });
+		const header = formatToolFrameHeaderText({ meta, theme, headerLeftPad: 1, topPad, bottomPad: 0 });
 		return `${header}\n ${theme.fg("error", message)}\n`;
 	}
 
@@ -1517,7 +1522,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				setToolHeaderBg(text);
 				resolvePreviewDiffColors(theme);
 				const lineCount = change.newContent.split("\n").length;
-				const newHdr = (width: number) => bgLine(`${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, width);
+				const newHdr = (width: number) =>
+					`${bgLine("", width)}\n${bgLine(`${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, width)}`;
 				const fp = change.path;
 				const pk = `ap:nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}`;
 				if (ctx.state._nfk !== pk) {
@@ -1553,15 +1559,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 							meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(1 change)`)}${TOOL_RESULT_INDENT}${formatToolHeaderPath(theme, sp(change.path))}`,
 							theme,
 							width,
-							topPad: 0,
-							bottomPad: 0,
+							topPad: APPLY_PATCH_FRAME.topPad,
+							bottomPad: APPLY_PATCH_FRAME.headerBottomPad,
 						}),
 					parsed,
 					detectDiffLanguage(change.path),
 					MAX_PREVIEW_LINES,
 					theme,
 					ctx,
-					{ previewBottomPad: 1, compactGutter: true },
+					{ previewBottomPad: APPLY_PATCH_FRAME.previewBottomPad, compactGutter: true },
 				);
 
 				return true;
@@ -1597,15 +1603,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${TOOL_RESULT_INDENT}${theme.fg("muted", `(${previewable.length} changes)`)} ${summarizeThemed(added, removed, theme)}${TOOL_RESULT_INDENT}${summarizeApplyPatchChanges(previewable, theme)}`,
 					theme,
 					width,
-					topPad: 0,
-					bottomPad: 0,
+					topPad: APPLY_PATCH_FRAME.topPad,
+					bottomPad: APPLY_PATCH_FRAME.headerBottomPad,
 				}),
 			{ lines, added, removed, chars },
 			mixedLanguage ? undefined : language,
 			MAX_PREVIEW_LINES,
 			theme,
 			ctx,
-			{ previewBottomPad: 1, compactGutter: true },
+			{ previewBottomPad: APPLY_PATCH_FRAME.previewBottomPad, compactGutter: true },
 		);
 
 		return true;
@@ -2401,8 +2407,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			text.setText(
 				formatToolFrameHeaderText({
 					meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${suffix}`,
-					topPad: 0,
-					bottomPad: 0,
+					topPad: APPLY_PATCH_FRAME.topPad,
+					bottomPad: APPLY_PATCH_FRAME.headerBottomPad,
 				}),
 			);
 			return text;
@@ -2413,7 +2419,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const out = (result.content || []).map((c: any) => c.text).join("\n") || "Error";
 				text.__piDiffTask = undefined;
 				setToolErrorBg(text, theme);
-				text.setText(formatToolErrorResult("apply_patch", out, theme));
+				text.setText(formatToolErrorResult("apply_patch", out, theme, APPLY_PATCH_FRAME.topPad));
 				return text;
 			}
 

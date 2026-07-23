@@ -1823,7 +1823,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	registerToolIfEnabled("write", {
 		...origWrite,
 		name: "write",
-		renderShell: "default",
+		renderShell: "self",
 
 		async execute(tid: string, params: any, sig: any, upd: any, ctx: any) {
 			const fp = params.path ?? params.file_path ?? "";
@@ -2039,7 +2039,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	registerToolIfEnabled("edit", {
 		...origEdit,
 		name: "edit",
-		renderShell: "default",
+		renderShell: "self",
 		parameters: {
 			...((origEdit as any).parameters || {}),
 			properties: {
@@ -2165,7 +2165,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	registerToolIfEnabled("apply_patch", {
 		name: "apply_patch",
 		label: "apply_patch",
-		renderShell: "default",
+		renderShell: "self",
 		description:
 			"Multi-file patch engine. One call can add, update, delete, or move multiple files. Uses structured JSON changes array.",
 		parameters: {

@@ -1411,6 +1411,10 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	const TOOL_HEADER_LEFT_PAD = 0;
 	const DIFF_BODY_LEFT_PAD = 0;
 	/** Built-in `edit` tool diff result frame; intentionally offset from read/write/apply_patch previews. */
+	const WRITE_TOOL_FRAME = {
+		topPad: 1,
+		bottomPad: 1,
+	} as const;
 	const EDIT_DIFF_RESULT_FRAME = {
 		headerLeftPad: 1,
 		bodyLeftPad: 1,
@@ -1453,7 +1457,10 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 
 	function formatToolFrameHeader(opts: ToolFrameHeaderOpts): string {
 		const { width, ...rest } = opts;
-		return bgLine(formatToolFrameHeaderText(rest), width);
+		return formatToolFrameHeaderText(rest)
+			.split("\n")
+			.map((line) => bgLine(line, width))
+			.join("\n");
 	}
 
 	function setToolHeaderBg(text: any) {
@@ -1878,12 +1885,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const n = String(args.content).split("\n").length;
 				const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
 				setToolHeaderBg(text);
-				text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix, topPad: 0, bottomPad: 1 }));
+				text.setText(formatToolFrameHeader({ label, filePath: fp, theme, suffix, width: w, ...WRITE_TOOL_FRAME }));
 				return text;
 			}
 
 			if (args?.content && ctx.argsComplete && isNew) {
-				const title = formatToolFrameHeader({ label, filePath: fp, theme, width: w, topPad: 0, bottomPad: 1 });
+				const title = formatToolFrameHeader({ label, filePath: fp, theme, width: w, ...WRITE_TOOL_FRAME });
 				const previewKey = `create:${sharedThemeCacheKey(theme)}:${fp}:${String(args.content).length}`;
 				if (ctx.state._previewKey !== previewKey) {
 					ctx.state._previewKey = previewKey;
@@ -1903,7 +1910,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			}
 
 			setToolHeaderBg(text);
-			text.setText(formatToolFrameHeaderText({ label, filePath: fp, theme, suffix: stats, topPad: 0, bottomPad: 1 }));
+			text.setText(formatToolFrameHeader({ label, filePath: fp, theme, suffix: stats, width: w, ...WRITE_TOOL_FRAME }));
 			return text;
 		},
 

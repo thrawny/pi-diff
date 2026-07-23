@@ -12,7 +12,19 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ApplyPatchChange, executeApplyPatch as runApplyPatch } from "./apply-patch.js";
+import { type ApplyPatchChange, executeApplyPatch as runApplyPatch, formatApplyPatchResult } from "./apply-patch.js";
+
+describe("formatApplyPatchResult", () => {
+	it("does not prefix failure-only output with a blank line", () => {
+		const output = formatApplyPatchResult({
+			ok: false,
+			applied: [],
+			errors: [{ path: "/tmp/file.ts", action: "update", error: "oldText not found" }],
+		});
+
+		expect(output).toBe("Failed 1 change(s):\n  [update] /tmp/file.ts: oldText not found");
+	});
+});
 
 describe("executeApplyPatch source-safe updates", () => {
 	let tempDir: string;

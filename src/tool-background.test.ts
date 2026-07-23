@@ -18,10 +18,14 @@ function expectExplicitBackground(text: { customBgFn?: (line: string) => string 
 	expect(renderedPadding).not.toContain("\x1b[48;2;32;50;31m");
 }
 
+function stripAnsi(line: string) {
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequences are the value under test.
+	return line.replace(/\u001b\[[0-9;]*m/g, "");
+}
+
 function expectNeutralBlankLine(line: string) {
 	expect(line).toContain("\x1b[48;2;34;34;34m");
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequences are the value under test.
-	expect(line.replace(/\u001b\[[0-9;]*m/g, "").trim()).toBe("");
+	expect(stripAnsi(line).trim()).toBe("");
 }
 
 describe("diff preview backgrounds", () => {
@@ -76,19 +80,19 @@ describe("diff preview backgrounds", () => {
 			state: {},
 			invalidate: () => {},
 		});
-		const callLines = callText.render(196);
+		const callLines = callText.render(80);
 		expect(callLines).toHaveLength(3);
 		expectNeutralBlankLine(callLines[0]);
 		expect(callLines[1]).toContain("← create");
 
 		const completedState: Record<string, string> = {};
-		writeTool.renderCall({ path: "created.ts", content: "const value = 1;\n" }, theme, {
+		const completedText = writeTool.renderCall({ path: "created.ts", content: "const value = 1;\n" }, theme, {
 			argsComplete: true,
 			state: completedState,
 			invalidate: () => {},
 		});
-		await vi.waitFor(() => expect(completedState._previewText.split("\n").length).toBeGreaterThan(3));
-		expectNeutralBlankLine(completedState._previewText.split("\n").at(-1) ?? "");
+		await vi.waitFor(() => expect(completedState._previewBody).toBeDefined());
+		expectNeutralBlankLine(completedText.render(80).at(-1) ?? "");
 
 		const text = writeTool.renderResult(
 			{
@@ -101,8 +105,42 @@ describe("diff preview backgrounds", () => {
 		);
 
 		expectExplicitBackground(text);
-		const renderedResult = await text.__piDiffTask.render(196);
+		const renderedResult = await text.__piDiffTask.render(80);
 		expectNeutralBlankLine(renderedResult.split("\n").at(-1) ?? "");
+
+		const actualPath = join(tempDir, "actual-created.ts");
+		const params = { path: actualPath, content: "export const created = true;\n" };
+		await writeTool.execute("new-file-call", params, undefined, undefined, {});
+		const postExecuteCall = writeTool.renderCall(params, theme, {
+			argsComplete: true,
+			executionStarted: true,
+			toolCallId: "new-file-call",
+			state: {},
+			invalidate: () => {},
+		});
+		const postExecuteLines = postExecuteCall.render(80);
+		expect(postExecuteLines).toHaveLength(3);
+		expect(postExecuteLines.join("\n")).toContain("← create");
+		expect(stripAnsi(postExecuteLines.join("\n"))).not.toContain("export const created");
+	});
+
+	it("renders edit headers without extra top or bottom rows", async () => {
+		let editTool: any;
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				if (tool.name === "edit") editTool = tool;
+			},
+		} as never);
+
+		const filePath = join(tempDir, "edit.ts");
+		writeFileSync(filePath, "const value = 1;\n", "utf-8");
+		const text = editTool.renderCall({ path: filePath, oldText: "value = 1", newText: "value = 2" }, theme, {
+			argsComplete: true,
+			state: {},
+			invalidate: () => {},
+		});
+
+		expect(text.render(196)).toHaveLength(1);
 	});
 
 	it("uses explicit bgEmpty for apply_patch error output instead of tool-state backgrounds", async () => {
@@ -121,10 +159,43 @@ describe("diff preview backgrounds", () => {
 		);
 
 		expectExplicitBackground(text);
-		expect(text.render(120).join("\n")).toContain("← apply_patch");
+		const errorLines = text.render(196);
+		expect(errorLines[0]).toContain("← apply_patch");
+		expect(stripAnsi(errorLines[1])).toContain("Failed 1 change(s)");
+
+		await expect(
+			applyPatchTool.execute("failing-patch", {
+				changes: [{ path: join(tempDir, "missing.ts"), action: "update", oldText: "absent", newText: "next" }],
+			}),
+		).rejects.toThrow(/Failed 1 change/);
 	});
 
-	it("keeps a neutral background when apply_patch call output is hidden", async () => {
+	it("renders apply_patch diffs directly below their header", async () => {
+		let applyPatchTool: any;
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				if (tool.name === "apply_patch") applyPatchTool = tool;
+			},
+		} as never);
+
+		const filePath = join(tempDir, "patched.ts");
+		writeFileSync(filePath, "const value = 1;\n", "utf-8");
+		const result = await applyPatchTool.execute("successful-patch", {
+			changes: [{ path: filePath, action: "update", oldText: "value = 1", newText: "value = 2" }],
+		});
+		const text = applyPatchTool.renderResult(result, {}, theme, {
+			isError: false,
+			state: {},
+			invalidate: () => {},
+		});
+		const lines = (await text.__piDiffTask.render(196)).split("\n");
+
+		expect(stripAnsi(lines[0])).toContain("← apply_patch");
+		expect(stripAnsi(lines[1]).trim()).not.toBe("");
+		expectNeutralBlankLine(lines.at(-1) ?? "");
+	});
+
+	it("renders no row when completed apply_patch call output is hidden", async () => {
 		let applyPatchTool: any;
 		await diffRendererExtension({
 			registerTool: (tool: { name: string }) => {
@@ -138,6 +209,6 @@ describe("diff preview backgrounds", () => {
 			{ argsComplete: true, state: {}, invalidate: () => {} },
 		);
 
-		expectExplicitBackground(text);
+		expect(text.render(196)).toEqual([]);
 	});
 });

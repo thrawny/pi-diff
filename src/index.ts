@@ -1413,12 +1413,12 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	const DIFF_BODY_LEFT_PAD = 0;
 	const WRITE_TOOL_FRAME = {
 		topPad: 1,
-		bottomPad: 1,
+		bottomPad: 0,
 	} as const;
 	const EDIT_DIFF_RESULT_FRAME = {
 		headerLeftPad: 1,
 		bodyLeftPad: 1,
-		topPad: 0,
+		topPad: 1,
 		bottomPad: 0,
 		previewBottomPad: 1,
 	} as const;
@@ -1949,7 +1949,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 						.join("\n") ?? "Error";
 				text.__piDiffTask = undefined;
 				setToolErrorBg(text, theme);
-				text.setText(formatToolErrorResult("write", e, theme));
+				text.setText(formatToolErrorResult("write", e, theme, WRITE_TOOL_FRAME.topPad));
 
 				return text;
 			}
@@ -1965,7 +1965,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			if (d?._type === "noChange") {
 				text.__piDiffTask = undefined;
 				clearToolHeaderBg(text);
-				text.setText(`${TOOL_RESULT_INDENT}${theme.fg("muted", "✓ no changes")}`);
+				text.setText(`${TOOL_RESULT_INDENT}${theme.fg("muted", "✓ no changes")}\n`);
 				return text;
 			}
 			if (d?._type === "new") {
@@ -2300,7 +2300,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 						.join("\n") ?? "Error";
 				text.__piDiffTask = undefined;
 				setToolErrorBg(text, theme);
-				text.setText(formatToolErrorResult("edit", e, theme));
+				text.setText(formatToolErrorResult("edit", e, theme, EDIT_DIFF_RESULT_FRAME.topPad));
 				return text;
 			}
 			const d = result.details;

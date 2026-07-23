@@ -65,6 +65,9 @@ describe("diff preview backgrounds", () => {
 		);
 
 		expectExplicitBackground(text);
+		const resultLines = (await text.__piDiffTask.render(80)).split("\n");
+		expect(stripAnsi(resultLines[0]).trim()).not.toBe("");
+		expectNeutralBlankLine(resultLines.at(-1) ?? "");
 	});
 
 	it("uses explicit bgEmpty for write new-file previews instead of toolSuccessBg", async () => {
@@ -81,7 +84,7 @@ describe("diff preview backgrounds", () => {
 			invalidate: () => {},
 		});
 		const callLines = callText.render(80);
-		expect(callLines).toHaveLength(3);
+		expect(callLines).toHaveLength(2);
 		expectNeutralBlankLine(callLines[0]);
 		expect(callLines[1]).toContain("← create");
 
@@ -92,7 +95,11 @@ describe("diff preview backgrounds", () => {
 			invalidate: () => {},
 		});
 		await vi.waitFor(() => expect(completedState._previewBody).toBeDefined());
-		expectNeutralBlankLine(completedText.render(80).at(-1) ?? "");
+		const completedLines = completedText.render(80);
+		expectNeutralBlankLine(completedLines[0]);
+		expect(completedLines[1]).toContain("← create");
+		expect(stripAnsi(completedLines[2]).trim()).not.toBe("");
+		expectNeutralBlankLine(completedLines.at(-1) ?? "");
 
 		const text = writeTool.renderResult(
 			{
@@ -106,7 +113,9 @@ describe("diff preview backgrounds", () => {
 
 		expectExplicitBackground(text);
 		const renderedResult = await text.__piDiffTask.render(80);
-		expectNeutralBlankLine(renderedResult.split("\n").at(-1) ?? "");
+		const resultLines = renderedResult.split("\n");
+		expect(stripAnsi(resultLines[0])).toContain("✓ new file");
+		expectNeutralBlankLine(resultLines.at(-1) ?? "");
 
 		const actualPath = join(tempDir, "actual-created.ts");
 		const params = { path: actualPath, content: "export const created = true;\n" };
@@ -119,12 +128,13 @@ describe("diff preview backgrounds", () => {
 			invalidate: () => {},
 		});
 		const postExecuteLines = postExecuteCall.render(80);
-		expect(postExecuteLines).toHaveLength(3);
-		expect(postExecuteLines.join("\n")).toContain("← create");
+		expect(postExecuteLines).toHaveLength(2);
+		expectNeutralBlankLine(postExecuteLines[0]);
+		expect(postExecuteLines[1]).toContain("← create");
 		expect(stripAnsi(postExecuteLines.join("\n"))).not.toContain("export const created");
 	});
 
-	it("renders edit headers without extra top or bottom rows", async () => {
+	it("renders edit headers with one top row and no gap before the diff", async () => {
 		let editTool: any;
 		await diffRendererExtension({
 			registerTool: (tool: { name: string }) => {
@@ -140,7 +150,10 @@ describe("diff preview backgrounds", () => {
 			invalidate: () => {},
 		});
 
-		expect(text.render(196)).toHaveLength(1);
+		const lines = text.render(80);
+		expect(lines).toHaveLength(2);
+		expectNeutralBlankLine(lines[0]);
+		expect(lines[1]).toContain("← edit");
 	});
 
 	it("uses explicit bgEmpty for apply_patch error output instead of tool-state backgrounds", async () => {
@@ -159,7 +172,7 @@ describe("diff preview backgrounds", () => {
 		);
 
 		expectExplicitBackground(text);
-		const errorLines = text.render(196);
+		const errorLines = text.render(80);
 		expectNeutralBlankLine(errorLines[0]);
 		expect(errorLines[1]).toContain("← apply_patch");
 		expect(stripAnsi(errorLines[2])).toContain("Failed 1 change(s)");
@@ -189,7 +202,7 @@ describe("diff preview backgrounds", () => {
 			state: {},
 			invalidate: () => {},
 		});
-		const lines = (await text.__piDiffTask.render(196)).split("\n");
+		const lines = (await text.__piDiffTask.render(80)).split("\n");
 
 		expectNeutralBlankLine(lines[0]);
 		expect(stripAnsi(lines[1])).toContain("← apply_patch");
@@ -213,7 +226,7 @@ describe("diff preview backgrounds", () => {
 			state: {},
 			invalidate: () => {},
 		});
-		const pendingLines = pendingText.render(196);
+		const pendingLines = pendingText.render(80);
 		expectNeutralBlankLine(pendingLines[0]);
 		expect(pendingLines[1]).toContain("← apply_patch");
 		expect(pendingLines).toHaveLength(2);
@@ -223,6 +236,6 @@ describe("diff preview backgrounds", () => {
 			state: {},
 			invalidate: () => {},
 		});
-		expect(text.render(196)).toEqual([]);
+		expect(text.render(80)).toEqual([]);
 	});
 });

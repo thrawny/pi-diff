@@ -1525,14 +1525,14 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					ctx.state._nfk = pk;
 					const lg = detectDiffLanguage(fp);
 					text.__piDiffTask = {
-						placeholder: `${newHdr}\n${padDiffBody(theme.fg("muted", "rendering file…"))}`,
-						fallback: `${newHdr}`,
+						placeholder: `${newHdr}\n${padDiffBody(theme.fg("muted", "rendering file…"))}\n${bgLine("", w)}`,
+						fallback: `${newHdr}\n${bgLine("", w)}`,
 						invalidate: ctx.invalidate,
 						key: (width: number) => `ap:nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}:${width}`,
-						render: async (_width: number) => {
+						render: async (width: number) => {
 							const hlLines = await hlBlock(change.newContent, lg);
 							const preview = hlLines.join("\n").replace(/\n+$/, "");
-							return `${newHdr}\n${padDiffBody(preview)}`;
+							return `${newHdr}\n${padDiffBody(preview)}\n${bgLine("", width)}`;
 						},
 					};
 				}
@@ -1899,7 +1899,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					hlBlock(args.content, lg)
 						.then((lines: string[]) => {
 							if (ctx.state._previewKey !== previewKey) return;
-							ctx.state._previewText = `${title}\n${padDiffBody(lines.join("\n"))}`;
+							const preview = lines.join("\n").replace(/\n+$/, "");
+							ctx.state._previewText = `${title}\n${padDiffBody(preview)}\n${bgLine("", w)}`;
 							ctx.invalidate();
 						})
 						.catch(() => {});
@@ -1954,19 +1955,19 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					ctx.state._nfk = pk;
 					const lg = detectDiffLanguage(fp);
 					text.__piDiffTask = {
-						placeholder: `${newHdr}\n${padDiffBody(theme.fg("muted", "rendering file…"))}`,
-						fallback: `${newHdr}`,
+						placeholder: `${newHdr}\n${padDiffBody(theme.fg("muted", "rendering file…"))}\n${bgLine("", w)}`,
+						fallback: `${newHdr}\n${bgLine("", w)}`,
 						invalidate: ctx.invalidate,
 						key: (width: number) => `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}:${width}`,
 						render: async (width: number) => {
-							if (!rawContent) return `${newHdr}`;
+							if (!rawContent) return `${newHdr}\n${bgLine("", width)}`;
 							const hlLines = await hlBlock(rawContent, lg);
 							const maxShow = hlLines.length;
 							const preview = hlLines.slice(0, maxShow).join("\n").replace(/\n+$/, "");
 							const rem = hlLines.length - maxShow;
 							const moreLine =
 								rem > 0 ? `\n${bgLine(`${TOOL_RESULT_INDENT}${theme.fg("muted", `… ${rem} more lines`)}`, width)}` : "";
-							return `${newHdr}\n${padDiffBody(preview)}${moreLine}`;
+							return `${newHdr}\n${padDiffBody(preview)}${moreLine}\n${bgLine("", width)}`;
 						},
 					};
 				}

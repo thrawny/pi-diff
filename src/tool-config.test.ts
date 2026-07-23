@@ -34,4 +34,17 @@ describe("disabledTools configuration", () => {
 		expect(registeredTools).toContain("edit");
 		expect(registeredTools).not.toContain("apply_patch");
 	});
+
+	it("uses self-rendered shells so Pi does not add tool-state background borders", async () => {
+		const registeredTools: Array<{ name: string; renderShell?: string }> = [];
+
+		await diffRendererExtension({
+			on: () => {},
+			registerTool: (tool: { name: string; renderShell?: string }) => registeredTools.push(tool),
+		} as never);
+
+		for (const name of ["write", "edit", "apply_patch"]) {
+			expect(registeredTools.find((tool) => tool.name === name)?.renderShell).toBe("self");
+		}
+	});
 });

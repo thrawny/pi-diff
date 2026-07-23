@@ -18,6 +18,12 @@ function expectExplicitBackground(text: { customBgFn?: (line: string) => string 
 	expect(renderedPadding).not.toContain("\x1b[48;2;32;50;31m");
 }
 
+function expectNeutralBlankLine(line: string) {
+	expect(line).toContain("\x1b[48;2;34;34;34m");
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: ANSI escape sequences are the value under test.
+	expect(line.replace(/\u001b\[[0-9;]*m/g, "").trim()).toBe("");
+}
+
 describe("diff preview backgrounds", () => {
 	let tempDir: string;
 	let cwdSpy: ReturnType<typeof vi.spyOn>;
@@ -72,8 +78,17 @@ describe("diff preview backgrounds", () => {
 		});
 		const callLines = callText.render(196);
 		expect(callLines).toHaveLength(3);
-		expect(callLines[0]).toContain("\x1b[48;2;34;34;34m");
+		expectNeutralBlankLine(callLines[0]);
 		expect(callLines[1]).toContain("← create");
+
+		const completedState: Record<string, string> = {};
+		writeTool.renderCall({ path: "created.ts", content: "const value = 1;\n" }, theme, {
+			argsComplete: true,
+			state: completedState,
+			invalidate: () => {},
+		});
+		await vi.waitFor(() => expect(completedState._previewText.split("\n").length).toBeGreaterThan(3));
+		expectNeutralBlankLine(completedState._previewText.split("\n").at(-1) ?? "");
 
 		const text = writeTool.renderResult(
 			{
@@ -86,6 +101,8 @@ describe("diff preview backgrounds", () => {
 		);
 
 		expectExplicitBackground(text);
+		const renderedResult = await text.__piDiffTask.render(196);
+		expectNeutralBlankLine(renderedResult.split("\n").at(-1) ?? "");
 	});
 
 	it("uses explicit bgEmpty for apply_patch error output instead of tool-state backgrounds", async () => {

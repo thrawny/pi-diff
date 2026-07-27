@@ -193,6 +193,7 @@ describe("disabledTools configuration", () => {
 	});
 
 	it("uses self-rendered shells so Pi does not add tool-state background borders", async () => {
+		writeFileSync(join(tempDir, "pi-diff.json"), JSON.stringify({ disabledTools: [] }));
 		const registeredTools: Array<{ name: string; renderShell?: string }> = [];
 
 		await diffRendererExtension({

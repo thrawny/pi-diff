@@ -2,6 +2,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { invalidatePiDiffConfig } from "./core/config.js";
 import diffRendererExtension, { __testing } from "./index.js";
 
 const theme = {
@@ -40,11 +41,14 @@ describe("diff preview backgrounds", () => {
 			JSON.stringify({ diffColors: { bgEmpty: "#222222" } }),
 			"utf-8",
 		);
+		writeFileSync(join(tempDir, ".pi", "pi-diff.json"), JSON.stringify({ disabledTools: [] }), "utf-8");
 		cwdSpy = vi.spyOn(process, "cwd").mockReturnValue(tempDir);
+		invalidatePiDiffConfig();
 	});
 
 	afterEach(() => {
 		cwdSpy.mockRestore();
+		invalidatePiDiffConfig();
 		rmSync(tempDir, { recursive: true, force: true });
 	});
 
@@ -132,6 +136,68 @@ describe("diff preview backgrounds", () => {
 		expectNeutralBlankLine(postExecuteLines[0]);
 		expect(postExecuteLines[1]).toContain("← create");
 		expect(stripAnsi(postExecuteLines.join("\n"))).not.toContain("export const created");
+	});
+
+	it("preserves write framing through streaming, preview, execution, and result states", async () => {
+		let writeTool: any;
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				if (tool.name === "write") writeTool = tool;
+			},
+		} as never);
+
+		const args = { path: "streamed.sql", content: "SELECT 1;\nSELECT 2;\n" };
+		const state: Record<string, unknown> = {};
+		let callText = writeTool.renderCall(args, theme, {
+			argsComplete: false,
+			executionStarted: false,
+			state,
+			invalidate: () => {},
+		});
+		expectNeutralBlankLine(callText.render(80)[0]);
+		expect(callText.render(80)).toHaveLength(2);
+
+		callText = writeTool.renderCall(args, theme, {
+			argsComplete: true,
+			executionStarted: false,
+			state,
+			lastComponent: callText,
+			invalidate: () => {},
+		});
+		await vi.waitFor(() => expect(state._previewBody).toBeDefined());
+		const previewLines = callText.render(80);
+		expectNeutralBlankLine(previewLines[0]);
+		expect(previewLines[1]).toContain("← create");
+		expect(stripAnsi(previewLines[2])).toContain("SELECT 1");
+		expectNeutralBlankLine(previewLines.at(-1) ?? "");
+
+		callText = writeTool.renderCall(args, theme, {
+			argsComplete: true,
+			executionStarted: true,
+			state,
+			lastComponent: callText,
+			invalidate: () => {},
+		});
+		const executingLines = callText.render(80);
+		expect(executingLines).toHaveLength(2);
+		expectNeutralBlankLine(executingLines[0]);
+		expect(executingLines[1]).toContain("← create");
+
+		const resultText = writeTool.renderResult(
+			{
+				details: { _type: "new", lines: 2, content: args.content, filePath: args.path },
+				content: [{ type: "text", text: "Created" }],
+			},
+			{},
+			theme,
+			{ isError: false, state: {}, invalidate: () => {} },
+		);
+		const resultLines = (await resultText.__piDiffTask.render(80)).split("\n");
+		const settledLines = [...executingLines, ...resultLines];
+		expectNeutralBlankLine(settledLines[0]);
+		expect(settledLines[1]).toContain("← create");
+		expect(stripAnsi(settledLines[2])).toContain("✓ new file");
+		expectNeutralBlankLine(settledLines.at(-1) ?? "");
 	});
 
 	it("renders edit headers with one top row and no gap before the diff", async () => {

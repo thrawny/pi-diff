@@ -1432,6 +1432,10 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 		headerBottomPad: 0,
 		previewBottomPad: 1,
 	} as const;
+	const TOOL_PENDING_FRAME = {
+		topPad: 1,
+		bottomPad: 1,
+	} as const;
 	function resolvePreviewDiffColors(theme: any): DiffColors {
 		resolveDiffColors(theme);
 		return resolveSharedDiffColors(theme);
@@ -1907,7 +1911,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const n = String(args.content).split("\n").length;
 				const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
 				const text = setWidthAwareText(ctx.lastComponent, (width) =>
-					formatToolFrameHeader({ label, filePath: fp, theme, suffix, width, ...WRITE_TOOL_FRAME }),
+					formatToolFrameHeader({ label, filePath: fp, theme, suffix, width, ...TOOL_PENDING_FRAME }),
 				);
 				setToolHeaderBg(text);
 				return text;
@@ -2137,6 +2141,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			const fp = args?.path ?? args?.file_path ?? "";
 			const text = ctx.lastComponent ?? new TextComponent("", 0, 0);
 			resolvePreviewDiffColors(theme);
+			setToolHeaderBg(text);
 
 			const stats = editCallStatsSuffix(ctx.toolCallId, theme);
 			setToolHeaderBg(text);
@@ -2146,8 +2151,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					filePath: fp,
 					theme,
 					suffix: stats,
-					topPad: EDIT_DIFF_RESULT_FRAME.topPad,
-					bottomPad: EDIT_DIFF_RESULT_FRAME.bottomPad,
+					...TOOL_PENDING_FRAME,
 					headerLeftPad: EDIT_DIFF_RESULT_FRAME.headerLeftPad,
 				}),
 			);
@@ -2340,8 +2344,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			text.setText(
 				formatToolFrameHeaderText({
 					meta: `${theme.fg("toolTitle", theme.bold(formatToolHeaderName("apply_patch")))}${suffix}`,
-					topPad: APPLY_PATCH_FRAME.topPad,
-					bottomPad: APPLY_PATCH_FRAME.headerBottomPad,
+					...TOOL_PENDING_FRAME,
 				}),
 			);
 			return text;

@@ -88,9 +88,10 @@ describe("diff preview backgrounds", () => {
 			invalidate: () => {},
 		});
 		const callLines = callText.render(80);
-		expect(callLines).toHaveLength(2);
+		expect(callLines).toHaveLength(3);
 		expectNeutralBlankLine(callLines[0]);
 		expect(callLines[1]).toContain("← create");
+		expectNeutralBlankLine(callLines[2]);
 
 		const completedState: Record<string, string> = {};
 		const completedText = writeTool.renderCall({ path: "created.ts", content: "const value = 1;\n" }, theme, {
@@ -154,8 +155,11 @@ describe("diff preview backgrounds", () => {
 			state,
 			invalidate: () => {},
 		});
-		expectNeutralBlankLine(callText.render(80)[0]);
-		expect(callText.render(80)).toHaveLength(2);
+		const streamingLines = callText.render(80);
+		expect(streamingLines).toHaveLength(3);
+		expectNeutralBlankLine(streamingLines[0]);
+		expect(streamingLines[1]).toContain("← create");
+		expectNeutralBlankLine(streamingLines[2]);
 
 		callText = writeTool.renderCall(args, theme, {
 			argsComplete: true,
@@ -210,9 +214,22 @@ describe("diff preview backgrounds", () => {
 
 		const filePath = join(tempDir, "edit.ts");
 		writeFileSync(filePath, "const value = 1;\n", "utf-8");
+		const state = {};
+		const pendingText = editTool.renderCall({ path: filePath }, theme, {
+			argsComplete: false,
+			state,
+			invalidate: () => {},
+		});
+		const pendingLines = pendingText.render(80);
+		expect(pendingLines).toHaveLength(3);
+		expectNeutralBlankLine(pendingLines[0]);
+		expect(pendingLines[1]).toContain("← edit");
+		expectNeutralBlankLine(pendingLines[2]);
+
 		const text = editTool.renderCall({ path: filePath, oldText: "value = 1", newText: "value = 2" }, theme, {
 			argsComplete: true,
-			state: {},
+			state,
+			lastComponent: pendingText,
 			invalidate: () => {},
 		});
 
@@ -295,7 +312,8 @@ describe("diff preview backgrounds", () => {
 		const pendingLines = pendingText.render(80);
 		expectNeutralBlankLine(pendingLines[0]);
 		expect(pendingLines[1]).toContain("← apply_patch");
-		expect(pendingLines).toHaveLength(2);
+		expectNeutralBlankLine(pendingLines[2]);
+		expect(pendingLines).toHaveLength(3);
 
 		const text = applyPatchTool.renderCall(args, theme, {
 			argsComplete: true,

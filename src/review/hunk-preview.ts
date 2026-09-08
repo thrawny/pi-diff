@@ -8,6 +8,7 @@ import {
 	type ShikiTheme as BundledTheme,
 	codeToAnsi,
 } from "../core/highlight.js";
+import { wrapMarkdownLine } from "../core/wrap.js";
 import type { ReviewHunk } from "./git.js";
 
 export interface ReviewHunkPreviewInput {
@@ -833,7 +834,10 @@ export async function renderUnified(
 		const numFg = borderFg || FG_LNUM;
 		const gutter = `${border}${gutterBg}${lnum(number, numberWidth, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
 		const continuationGutter = `${border}${gutterBg}${" ".repeat(numberWidth + 3)}${RST}`;
-		const rows = wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), bodyBg);
+		const rows =
+			language === "markdown"
+				? wrapMarkdownLine(tabs(body), codeWidth, bodyBg)
+				: wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), bodyBg);
 		output.push(`${gutter}${rows[0]}${RST}`);
 		for (let rowIndex = 1; rowIndex < rows.length; rowIndex++) {
 			output.push(`${continuationGutter}${rows[rowIndex]}${RST}`);
@@ -1030,7 +1034,10 @@ export async function renderSplit(
 		return {
 			gutter,
 			continuation,
-			bodyRows: wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), codeBg),
+			bodyRows:
+				language === "markdown"
+					? wrapMarkdownLine(tabs(body), codeWidth, codeBg)
+					: wrapAnsi(tabs(body), codeWidth, adaptiveWrapRows(renderWidth), codeBg),
 		};
 	}
 

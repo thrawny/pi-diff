@@ -1,6 +1,7 @@
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { visibleWidth } from "@earendil-works/pi-tui";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { invalidatePiDiffConfig } from "./core/config.js";
 import diffRendererExtension, { __testing } from "./index.js";
@@ -50,6 +51,37 @@ describe("diff preview backgrounds", () => {
 		cwdSpy.mockRestore();
 		invalidatePiDiffConfig();
 		rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	it("keeps Markdown paragraphs visible in edit, write, and apply_patch components after resize", async () => {
+		const tools: Record<string, any> = {};
+		await diffRendererExtension({
+			registerTool: (tool: { name: string }) => {
+				tools[tool.name] = tool;
+			},
+		} as never);
+		const before = `${"A long Markdown paragraph with enough prose to exceed every display row cap. ".repeat(10)}PARAGRAPH_END`;
+		const after = before.replace("enough prose", "updated prose");
+		for (const name of ["edit", "write", "apply_patch"]) {
+			const filePath = join(tempDir, `${name}.md`);
+			writeFileSync(filePath, before);
+			const args =
+				name === "write"
+					? { path: filePath, content: after }
+					: name === "edit"
+						? { path: filePath, edits: [{ oldText: before, newText: after }] }
+						: { changes: [{ path: filePath, action: "update", oldText: before, newText: after }] };
+			const result = await tools[name].execute(`wrap-${name}`, args, undefined, undefined, {});
+			const component = tools[name].renderResult(result, {}, theme, { state: {}, invalidate: () => {} });
+			for (const width of [80, 120, 180, 80]) {
+				await vi.waitFor(() => {
+					const lines: string[] = component.render(width);
+					expect(stripAnsi(lines.join("\n")).match(/PARAGRAPH_END/g)).toHaveLength(2);
+					for (const line of lines) expect(visibleWidth(line)).toBeLessThanOrEqual(width);
+					expect(stripAnsi(lines.join("\n"))).not.toContain("›");
+				});
+			}
+		}
 	});
 
 	it("uses explicit bgEmpty for edit diff preview padding instead of toolSuccessBg", async () => {

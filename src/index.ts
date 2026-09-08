@@ -57,6 +57,7 @@ import {
  type ShikiTheme as BundledTheme,
  codeToAnsi,
 } from "./core/highlight.js";
+import { wrapMarkdownLine } from "./core/wrap.js";
 
 import {
 	applyDiffPalette as applySharedDiffPalette,
@@ -1085,7 +1086,10 @@ async function renderUnified(
 		const numFg = borderFg || FG_LNUM;
 		const gutter = `${border}${gutterBg}${lnum(num, nw, numFg)}${gutterBg} ${signFg}${sign}${gutterBg} ${RST}`;
 		const contGutter = `${border}${gutterBg}${" ".repeat(nw + 3)}${RST}`;
-		const rows = wrapAnsi(tabs(body), cw, adaptiveWrapRows(), bodyBg);
+		const rows =
+			language === "markdown"
+				? wrapMarkdownLine(tabs(body), cw, bodyBg)
+				: wrapAnsi(tabs(body), cw, adaptiveWrapRows(), bodyBg);
 		out.push(`${gutter}${rows[0]}${RST}`);
 		for (let r = 1; r < rows.length; r++) out.push(`${contGutter}${rows[r]}${RST}`);
 	}
@@ -1285,7 +1289,10 @@ async function renderSplit(
 
 		const gutter = `${border}${gBg}${lnum(num, nw, numFg)}${gBg} ${sFg}${sign}${gBg} ${RST}`;
 		const contGutter = `${border}${gBg}${" ".repeat(nw + 3)}${RST}`;
-		const bodyRows = wrapAnsi(tabs(body), cw, adaptiveWrapRows(), cBg);
+		const bodyRows =
+			language === "markdown"
+				? wrapMarkdownLine(tabs(body), cw, cBg)
+				: wrapAnsi(tabs(body), cw, adaptiveWrapRows(), cBg);
 		return { gutter, contGutter, bodyRows };
 	}
 

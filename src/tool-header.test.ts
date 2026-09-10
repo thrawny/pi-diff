@@ -1,11 +1,12 @@
 import { strict as assert } from "node:assert";
-import { Box, Spacer, stripTerminalSequences } from "@earendil-works/pi-tui";
+import { stripTerminalSequences } from "@earendil-works/pi-tui";
 import { describe, it, vi } from "vitest";
 import diffRendererExtension, { __testing } from "./index.js";
 
 vi.mock("./core/config.js", () => ({
 	configIndicatorStyle: () => undefined,
 	loadPiDiffConfig: () => ({}),
+	loadPiSettingsDiffConfig: () => ({}),
 }));
 
 describe("tool header names", () => {
@@ -52,10 +53,8 @@ async function getRenderedTools(): Promise<Map<string, any>> {
 	return tools;
 }
 
-function renderDefaultToolShell(...components: Renderable[]): string[] {
-	const box = new Box(1, 1);
-	for (const component of components) box.addChild(component as any);
-	return [...new Spacer(1).render(80), ...box.render(80)].map(stripTerminalSequences);
+function renderSelfToolShell(...components: Renderable[]): string[] {
+	return components.flatMap((component) => component.render(80)).map(stripTerminalSequences);
 }
 
 function leadingSpaces(line: string): number {
@@ -69,7 +68,7 @@ function lineContaining(lines: string[], text: string): { line: string; index: n
 }
 
 describe("write/edit/apply_patch shell spacing", () => {
-	it("keeps one host-provided space and one top shell pad on both titles", async () => {
+	it("keeps the fork title offsets and one top pad", async () => {
 		const tools = await getRenderedTools();
 		const cases = [
 			{
@@ -83,21 +82,21 @@ describe("write/edit/apply_patch shell spacing", () => {
 		];
 
 		for (const { name, args } of cases) {
-			assert.equal(tools.get(name).renderShell, "default");
+			assert.equal(tools.get(name).renderShell, "self");
 			const call = tools.get(name).renderCall(args, renderTheme, {
 				argsComplete: true,
 				lastComponent: undefined,
 				state: {},
 				toolCallId: `${name}-call`,
 			});
-			const lines = renderDefaultToolShell(call);
+			const lines = renderSelfToolShell(call);
 			const title = lineContaining(lines, `← ${name}`);
-			assert.equal(title.index, 2, `${name} title should follow the host spacer and top pad`);
-			assert.equal(leadingSpaces(title.line), 1, `${name} title should have one leading space`);
+			assert.equal(title.index, 1, `${name} title should follow the top pad`);
+			assert.equal(leadingSpaces(title.line), name === "edit" ? 1 : 0, `${name} title should keep its left offset`);
 		}
 	});
 
-	it("does not pre-pad create headers to the terminal width", async () => {
+	it("keeps create headers padded without extra rows", async () => {
 		const tools = await getRenderedTools();
 		const path = `/tmp/pi-diff-layout-missing-${process.pid}`;
 		const call = tools.get("write").renderCall({ path, content: "const value = 1;" }, renderTheme, {
@@ -107,13 +106,13 @@ describe("write/edit/apply_patch shell spacing", () => {
 			toolCallId: "create-call",
 			invalidate() {},
 		});
-		const lines = renderDefaultToolShell(call);
+		const lines = renderSelfToolShell(call);
 		const title = lineContaining(lines, "← create");
-		assert.equal(title.index, 2);
-		assert.equal(lines.length, 4);
+		assert.equal(title.index, 1);
+		assert.equal(lines.length, 2);
 	});
 
-	it("keeps one leading space on diff bodies and one trailing shell pad", async () => {
+	it("keeps the fork diff body offsets and one trailing pad", async () => {
 		const tools = await getRenderedTools();
 		const diff = __testing.parseDiff("old();\n", "new();\n");
 
@@ -137,9 +136,13 @@ describe("write/edit/apply_patch shell spacing", () => {
 				renderTheme,
 				{ args, state: {}, lastComponent: undefined, invalidate() {}, isError: false },
 			);
-			const lines = renderDefaultToolShell(call, result);
+			const lines = renderSelfToolShell(call, result);
 			const body = lineContaining(lines, "rendering diff");
-			assert.equal(leadingSpaces(body.line), 1, `${name} diff body should have one leading space`);
+			assert.equal(
+				leadingSpaces(body.line),
+				name === "edit" ? 2 : 1,
+				`${name} diff placeholder should keep its body offset`,
+			);
 			assert.equal(
 				body.index,
 				lineContaining(lines, `← ${name}`).index + 1,
@@ -176,7 +179,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 				invalidate() {},
 				isError: false,
 			});
-			const lines = renderDefaultToolShell(body);
+			const lines = renderSelfToolShell(body);
 			const line = lineContaining(lines, needle);
 			assert.equal(leadingSpaces(line.line), 1, `${name} result should have one leading space`);
 		}
@@ -194,16 +197,16 @@ describe("write/edit/apply_patch shell spacing", () => {
 					renderTheme,
 					{ args, state: {}, lastComponent: undefined, invalidate() {}, isError: true },
 				);
-			const lines = renderDefaultToolShell(error);
+			const lines = renderSelfToolShell(error);
 			assert.equal(leadingSpaces(lineContaining(lines, `← ${name}`).line), 1, `${name} error title should be aligned`);
 			assert.equal(leadingSpaces(lineContaining(lines, "failure").line), 1, `${name} error should be aligned`);
 		}
 	});
 
-	it("applies the same minimal shell spacing to apply_patch", async () => {
+	it("applies the same self-rendered spacing to apply_patch", async () => {
 		const tools = await getRenderedTools();
 		const tool = tools.get("apply_patch");
-		assert.equal(tool.renderShell, "default");
+		assert.equal(tool.renderShell, "self");
 		const change = { path: "package.json", action: "update", oldText: "old", newText: "new" };
 
 		const call = tool.renderCall({ changes: [change] }, renderTheme, {
@@ -212,9 +215,9 @@ describe("write/edit/apply_patch shell spacing", () => {
 			state: {},
 			toolCallId: "apply-call",
 		});
-		const callTitle = lineContaining(renderDefaultToolShell(call), "← apply_patch");
-		assert.equal(callTitle.index, 2);
-		assert.equal(leadingSpaces(callTitle.line), 1);
+		const callTitle = lineContaining(renderSelfToolShell(call), "← apply_patch");
+		assert.equal(callTitle.index, 1);
+		assert.equal(leadingSpaces(callTitle.line), 0);
 
 		const result = tool.renderResult(
 			{
@@ -232,7 +235,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 			renderTheme,
 			{ args: { changes: [change] }, state: {}, lastComponent: undefined, invalidate() {}, isError: false },
 		);
-		const resultLines = renderDefaultToolShell(result);
+		const resultLines = renderSelfToolShell(result);
 		assert.equal(leadingSpaces(lineContaining(resultLines, "rendering diff").line), 1);
 		let trailingBlankLines = 0;
 		for (let index = resultLines.length - 1; index >= 0 && resultLines[index].trim() === ""; index--)
@@ -245,7 +248,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 			renderTheme,
 			{ args: { changes: [change] }, state: {}, lastComponent: undefined, invalidate() {}, isError: true },
 		);
-		const errorLines = renderDefaultToolShell(error);
+		const errorLines = renderSelfToolShell(error);
 		assert.equal(leadingSpaces(lineContaining(errorLines, "← apply_patch").line), 1);
 		assert.equal(leadingSpaces(lineContaining(errorLines, "failure").line), 1);
 	});

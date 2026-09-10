@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { type ApplyPatchChange, executeApplyPatch as runApplyPatch, formatApplyPatchResult } from "./apply-patch.js";
+import { type ApplyPatchChange, formatApplyPatchResult, executeApplyPatch as runApplyPatch } from "./apply-patch.js";
 
 describe("formatApplyPatchResult", () => {
 	it("does not prefix failure-only output with a blank line", () => {

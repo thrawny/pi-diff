@@ -53,9 +53,9 @@ import {
 	sepLabelUnified,
 } from "./core/diff.js";
 import {
- type ShikiLanguage as BundledLanguage,
- type ShikiTheme as BundledTheme,
- codeToAnsi,
+	type ShikiLanguage as BundledLanguage,
+	type ShikiTheme as BundledTheme,
+	codeToAnsi,
 } from "./core/highlight.js";
 import { wrapMarkdownLine } from "./core/wrap.js";
 
@@ -1973,7 +1973,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			if (d?._type === "diff") {
 				setDiffPreviewTask(text, "wd", "", d.diff, d.language, MAX_RENDER_LINES, theme, ctx, {
 					omitHeader: true,
-					previewBottomPad: 0,
+					previewBottomPad: 1,
 					compactGutter: true,
 				});
 				return text;
@@ -2015,7 +2015,9 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			}
 
 			clearToolHeaderBg(text);
-			text.setText(theme.fg("dim", String(result?.content?.[0]?.text ?? "written").slice(0, 120)));
+			text.setText(
+				`${TOOL_RESULT_INDENT}${theme.fg("dim", String(result?.content?.[0]?.text ?? "written").slice(0, 120))}`,
+			);
 			return text;
 		},
 	});
@@ -2151,14 +2153,13 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			setToolHeaderBg(text);
 
 			const stats = editCallStatsSuffix(ctx.toolCallId, theme);
-			setToolHeaderBg(text);
 			text.setText(
 				formatToolFrameHeaderText({
 					label: "edit",
 					filePath: fp,
 					theme,
 					suffix: stats,
-					...TOOL_PENDING_FRAME,
+					...(ctx.argsComplete ? EDIT_DIFF_RESULT_FRAME : TOOL_PENDING_FRAME),
 					headerLeftPad: EDIT_DIFF_RESULT_FRAME.headerLeftPad,
 				}),
 			);
@@ -2206,7 +2207,9 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			}
 			text.__piDiffTask = undefined;
 			clearToolHeaderBg(text);
-			text.setText(theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120)));
+			text.setText(
+				`${TOOL_RESULT_INDENT}${theme.fg("dim", String(result?.content?.[0]?.text ?? "edited").slice(0, 120))}`,
+			);
 
 			return text;
 		},
@@ -2335,6 +2338,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			};
 		},
 		renderCall(args: any, theme: any, ctx: any) {
+			resolveDiffColors(theme);
 			const changes = Array.isArray(args?.changes) ? args.changes : [];
 			const count = changes.length;
 			if (ctx.argsComplete && count > 0) {

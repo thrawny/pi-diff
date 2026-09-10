@@ -92,7 +92,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 			const lines = renderSelfToolShell(call);
 			const title = lineContaining(lines, `← ${name}`);
 			assert.equal(title.index, 1, `${name} title should follow the top pad`);
-			assert.equal(leadingSpaces(title.line), name === "edit" ? 1 : 0, `${name} title should keep its left offset`);
+			assert.equal(leadingSpaces(title.line), 1, `${name} title should keep its left offset`);
 		}
 	});
 
@@ -109,6 +109,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 		const lines = renderSelfToolShell(call);
 		const title = lineContaining(lines, "← create");
 		assert.equal(title.index, 1);
+		assert.equal(leadingSpaces(title.line), 1);
 		assert.equal(lines.length, 2);
 	});
 
@@ -138,11 +139,7 @@ describe("write/edit/apply_patch shell spacing", () => {
 			);
 			const lines = renderSelfToolShell(call, result);
 			const body = lineContaining(lines, "rendering diff");
-			assert.equal(
-				leadingSpaces(body.line),
-				name === "edit" ? 2 : 1,
-				`${name} diff placeholder should keep its body offset`,
-			);
+			assert.equal(leadingSpaces(body.line), 2, `${name} diff placeholder should keep its body offset`);
 			assert.equal(
 				body.index,
 				lineContaining(lines, `← ${name}`).index + 1,

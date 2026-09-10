@@ -190,7 +190,7 @@ describe("diff preview backgrounds", () => {
 		const streamingLines = callText.render(80);
 		expect(streamingLines).toHaveLength(3);
 		expectNeutralBlankLine(streamingLines[0]);
-		expect(streamingLines[1]).toContain("← create");
+		expect(stripAnsi(streamingLines[1])).toMatch(/^ ← create/);
 		expectNeutralBlankLine(streamingLines[2]);
 
 		callText = writeTool.renderCall(args, theme, {
@@ -203,8 +203,8 @@ describe("diff preview backgrounds", () => {
 		await vi.waitFor(() => expect(state._previewBody).toBeDefined());
 		const previewLines = callText.render(80);
 		expectNeutralBlankLine(previewLines[0]);
-		expect(previewLines[1]).toContain("← create");
-		expect(stripAnsi(previewLines[2])).toContain("SELECT 1");
+		expect(stripAnsi(previewLines[1])).toMatch(/^ ← create/);
+		expect(stripAnsi(previewLines[2])).toMatch(/^ SELECT 1/);
 		expectNeutralBlankLine(previewLines.at(-1) ?? "");
 
 		callText = writeTool.renderCall(args, theme, {
@@ -217,7 +217,7 @@ describe("diff preview backgrounds", () => {
 		const executingLines = callText.render(80);
 		expect(executingLines).toHaveLength(2);
 		expectNeutralBlankLine(executingLines[0]);
-		expect(executingLines[1]).toContain("← create");
+		expect(stripAnsi(executingLines[1])).toMatch(/^ ← create/);
 
 		const resultText = writeTool.renderResult(
 			{
@@ -232,7 +232,8 @@ describe("diff preview backgrounds", () => {
 		const settledLines = [...executingLines, ...resultLines];
 		expectNeutralBlankLine(settledLines[0]);
 		expect(settledLines[1]).toContain("← create");
-		expect(stripAnsi(settledLines[2])).toContain("✓ new file");
+		expect(stripAnsi(settledLines[2])).toMatch(/^ ✓ new file/);
+		expect(stripAnsi(settledLines[3])).toMatch(/^ SELECT 1/);
 		expectNeutralBlankLine(settledLines.at(-1) ?? "");
 	});
 

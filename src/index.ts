@@ -1424,6 +1424,8 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 	const TOOL_HEADER_LEFT_PAD = 0;
 	const DIFF_BODY_LEFT_PAD = 0;
 	const WRITE_TOOL_FRAME = {
+		headerLeftPad: 1,
+		bodyLeftPad: 1,
 		topPad: 1,
 		bottomPad: 0,
 	} as const;
@@ -1918,7 +1920,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const n = String(args.content).split("\n").length;
 				const suffix = `${TOOL_RESULT_INDENT}${theme.fg("muted", `(${n} lines…)`)}${stats ? ` ${stats.trimStart()}` : ""}`;
 				const text = setWidthAwareText(ctx.lastComponent, (width) =>
-					formatToolFrameHeader({ label, filePath: fp, theme, suffix, width, ...TOOL_PENDING_FRAME }),
+					formatToolFrameHeader({
+						label,
+						filePath: fp,
+						theme,
+						suffix,
+						width,
+						headerLeftPad: WRITE_TOOL_FRAME.headerLeftPad,
+						...TOOL_PENDING_FRAME,
+					}),
 				);
 				setToolHeaderBg(text);
 				return text;
@@ -1942,7 +1952,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 					const title = formatToolFrameHeader({ label, filePath: fp, theme, width, ...WRITE_TOOL_FRAME });
 					return ctx.state._previewBody === undefined
 						? title
-						: `${title}\n${padDiffBody(ctx.state._previewBody)}\n${bgLine("", width)}`;
+						: `${title}\n${padDiffBody(ctx.state._previewBody, WRITE_TOOL_FRAME.bodyLeftPad)}\n${bgLine("", width)}`;
 				});
 				setToolHeaderBg(text);
 				return text;
@@ -1973,6 +1983,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 			if (d?._type === "diff") {
 				setDiffPreviewTask(text, "wd", "", d.diff, d.language, MAX_RENDER_LINES, theme, ctx, {
 					omitHeader: true,
+					bodyLeftPad: WRITE_TOOL_FRAME.bodyLeftPad,
 					previewBottomPad: 1,
 					compactGutter: true,
 				});
@@ -1988,14 +1999,15 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 				const { lines: lineCount, content: rawContent, filePath: fp } = d;
 				setToolHeaderBg(text);
 				resolvePreviewDiffColors(theme);
-				const newHdr = (width: number) => bgLine(`${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, width);
+				const newHdr = (width: number) =>
+					bgLine(`${TOOL_RESULT_INDENT}${theme.fg("success", `✓ new file (${lineCount} lines)`)}`, width);
 				const pk = `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}`;
 				if (ctx.state._nfk !== pk) {
 					ctx.state._nfk = pk;
 					const lg = detectDiffLanguage(fp);
 					text.__piDiffTask = {
 						placeholder: (width: number) =>
-							`${newHdr(width)}\n${padDiffBody(theme.fg("muted", "rendering file…"))}\n${bgLine("", width)}`,
+							`${newHdr(width)}\n${padDiffBody(theme.fg("muted", "rendering file…"), WRITE_TOOL_FRAME.bodyLeftPad)}\n${bgLine("", width)}`,
 						fallback: (width: number) => `${newHdr(width)}\n${bgLine("", width)}`,
 						invalidate: ctx.invalidate,
 						key: (width: number) => `nf:${sharedThemeCacheKey(theme)}:${fp}:${lineCount}:${width}`,
@@ -2007,7 +2019,7 @@ export default async function diffRendererExtension(pi: ExtensionAPI): Promise<v
 							const rem = hlLines.length - maxShow;
 							const moreLine =
 								rem > 0 ? `\n${bgLine(`${TOOL_RESULT_INDENT}${theme.fg("muted", `… ${rem} more lines`)}`, width)}` : "";
-							return `${newHdr(width)}\n${padDiffBody(preview)}${moreLine}\n${bgLine("", width)}`;
+							return `${newHdr(width)}\n${padDiffBody(preview, WRITE_TOOL_FRAME.bodyLeftPad)}${moreLine}\n${bgLine("", width)}`;
 						},
 					};
 				}

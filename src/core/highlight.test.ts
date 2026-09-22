@@ -11,6 +11,14 @@ describe("codeToAnsi", () => {
 		expect(highlighted).toContain('\x1b[38;2;230;219;116m"world"');
 	});
 
+	it("highlights QML with the JavaScript regex engine", async () => {
+		const highlighted = await codeToAnsi('import QtQuick\nRectangle { color: "red" }', "qml", "monokai");
+
+		expect(highlighted).toContain("\x1b[38;2;");
+		expect(highlighted).toContain("Rectangle");
+		expect(highlighted).toContain('\x1b[38;2;230;219;116m"red"');
+	});
+
 	it("can add another language and theme to the shared highlighter", async () => {
 		const highlighted = await codeToAnsi("const answer = 42;", "typescript", "github-dark");
 

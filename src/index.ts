@@ -866,6 +866,7 @@ const EXT_LANG: Record<string, BundledLanguage> = {
 	yml: "yaml",
 	toml: "toml",
 	nix: "nix",
+	qml: "qml",
 	md: "markdown",
 	sql: "sql",
 	sh: "bash",
